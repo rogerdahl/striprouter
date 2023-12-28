@@ -18,6 +18,7 @@ mod render;
 use via::{LayerStartEndVia, LayerVia, ValidVia, Via, Pos, IntPos};
 
 use eframe::egui;
+use crate::render::Painting;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -48,7 +49,7 @@ impl Default for MyApp {
             name: "Arthur".to_owned(),
             age: 42,
         }
- }
+    }
 }
 
 impl eframe::App for MyApp {
@@ -58,7 +59,11 @@ impl eframe::App for MyApp {
             std::process::exit(0);
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        // UI elements
+
+        egui::SidePanel::left("my_left_panel").show(ctx, |ui| {
+            ui.label("Controls");
+
             ui.heading("My egui Application");
             ui.horizontal(|ui| {
                 let name_label = ui.label("Your name: ");
@@ -73,6 +78,20 @@ impl eframe::App for MyApp {
             // ui.image(egui::include_image!(
             //     "../../../crates/egui/assets/ferris.png"
             // ));
+        });
+
+        // Stripboard
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.label("Stripboard");
+
+            // Create an instance of Painting
+            let mut painting = Painting::default();
+            painting.ui_control(ui);
+            painting.ui_content(ui);
+            // render::Painting::ui_content(ui);
+            // ui_content
+            // render::Painting::render_stripboard(ctx, ui);
         });
     }
 }
