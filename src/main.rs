@@ -1,28 +1,95 @@
 #![allow(unused)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-// Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
-// <iostream>, <mutex>, <string>, <thread>, <vector>
-use std::time::Duration;
-use std::thread;
-use std::sync::{Arc, Mutex};
-use std::cmp;
-use std::io::{self, Write};
-use std::vec::Vec;
-use std::string::String;
+mod via;
+mod layout;
+mod render;
+
+// // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
+// // <iostream>, <mutex>, <string>, <thread>, <vector>
+// // Equivalent of using namespace std::chrono_literals; use std::time::Duration;
+// use std::thread;
+// use std::sync::{Arc, Mutex};
+// use std::cmp;
+// use std::io::{self, Write};
+// use std::vec::Vec;
+// use std::string::String;
+
+use via::{LayerStartEndVia, LayerVia, ValidVia, Via, Pos, IntPos};
+
+use eframe::egui;
+
+fn main() -> Result<(), eframe::Error> {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([500.0, 500.0]),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Stripboard Autorouter",
+        options,
+        Box::new(|cc| {
+            // This gives us image support:
+            // egui_extras::install_image_loaders(&cc.egui_ctx);
+
+            Box::<MyApp>::default()
+        }),
+    )
+}
+
+struct MyApp {
+    name: String,
+    age: u32,
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            name: "Arthur".to_owned(),
+            age: 42,
+        }
+ }
+}
+
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Exit if the Escape key is pressed
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            std::process::exit(0);
+        }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("My egui Application");
+            ui.horizontal(|ui| {
+                let name_label = ui.label("Your name: ");
+                ui.text_edit_singleline(&mut self.name).labelled_by(name_label.id);
+            });
+            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
+            if ui.button("Click each year").clicked() {
+                self.age += 1;
+            }
+            ui.label(format!("Hello '{}', age {}", self.name, self.age));
+
+            // ui.image(egui::include_image!(
+            //     "../../../crates/egui/assets/ferris.png"
+            // ));
+        });
+    }
+}
 
 // Equivalent of #include <GL/glew.h>, <GLFW/glfw3.h>
 // You'll need to add glfw and glew to your Cargo.toml
-extern crate glfw;
-use glfw::{Action, Context, Key};
+// extern crate glfw;
+// use glfw::{Action, Context, Key};
 
-extern crate gl;
-use gl::types::*;
+// extern crate gl;
+// use gl::types::*;
 
 // Equivalent of #include <cmdparser.hpp>, <fmt/format.h>, <nanogui/nanogui.h>
 // You'll need to add cmdparser, fmt, and nanogui to your Cargo.toml
-extern crate cmdparser;
-extern crate fmt;
-extern crate nanogui;
+// extern crate cmdparser;
+// extern crate fmt;
+// extern crate nanogui;
 
 // Equivalent of #include "circuit_parser.h", "circuit_writer.h", "ga_interface.h",
 // "gl_error.h", "gui.h", "gui_status.h", "icon.h", "ogl_text.h", "render.h",
@@ -43,36 +110,25 @@ extern crate nanogui;
 // mod via;
 // mod write_svg;
 
-// Equivalent of using namespace std::chrono_literals;
-use std::time::Duration;
+// Equivalent of std::string DIAG_FONT_PATH = "./fonts/RobotoMono-Regular.ttf"; static DIAG_FONT_PATH: &'static str = "./fonts/RobotoMono-Regular.ttf";
 
-// Equivalent of std::string DIAG_FONT_PATH = "./fonts/RobotoMono-Regular.ttf";
-static DIAG_FONT_PATH: &'static str = "./fonts/RobotoMono-Regular.ttf";
+// Equivalent of const int DIAG_FONT_SIZE = 12; const DIAG_FONT_SIZE: i32 = 12;
 
-// Equivalent of const int DIAG_FONT_SIZE = 12;
-const DIAG_FONT_SIZE: i32 = 12;
-
-// Equivalent of const int DRAG_FONT_SIZE = 12;
-const DRAG_FONT_SIZE: i32 = 12;
+// Equivalent of const int DRAG_FONT_SIZE = 12; const DRAG_FONT_SIZE: i32 = 12;
 
 // Equivalent of OglText diagText(DIAG_FONT_PATH, DIAG_FONT_SIZE);
 // You'll need to define the OglText struct in Rust
 // const diag_text = ogl_text::OglText::new(DIAG_FONT_PATH, DIAG_FONT_SIZE);
 
-// Equivalent of const float ZOOM_MOUSE_WHEEL_STEP = 0.3f;
-const ZOOM_MOUSE_WHEEL_STEP: f32 = 0.3;
+// Equivalent of const float ZOOM_MOUSE_WHEEL_STEP = 0.3f; const ZOOM_MOUSE_WHEEL_STEP: f32 = 0.3;
 
-// Equivalent of const float ZOOM_MIN = -1.0f;
-const ZOOM_MIN: f32 = -1.0;
+// Equivalent of const float ZOOM_MIN = -1.0f; const ZOOM_MIN: f32 = -1.0;
 
-// Equivalent of const float ZOOM_MAX = 5.0f;
-const ZOOM_MAX: f32 = 5.0;
+// Equivalent of const float ZOOM_MAX = 5.0f; const ZOOM_MAX: f32 = 5.0;
 
-// Equivalent of const float ZOOM_DEF = 2.0f;
-const ZOOM_DEF: f32 = 2.0;
+// Equivalent of const float ZOOM_DEF = 2.0f; const ZOOM_DEF: f32 = 2.0;
 
-// Equivalent of const int INITIAL_BORDER_PIXELS = 50;
-const INITIAL_BORDER_PIXELS: i32 = 50;
+// Equivalent of const int INITIAL_BORDER_PIXELS = 50; const INITIAL_BORDER_PIXELS: i32 = 50;
 
 // // Equivalent of float zoomLinear = ZOOM_DEF;
 // let zoom_linear = ZOOM_DEF;
@@ -84,15 +140,13 @@ const INITIAL_BORDER_PIXELS: i32 = 50;
 // let is_zoom_pan_adjusted: bool = false;
 
 // Equivalent of void setZoomPan(Pos scrPos);
-// You'll need to define the Pos struct in Rust
-fn set_zoom_pan(scr_pos: Pos) {
-    // Implementation goes here
-}
+// You'll need to define the Pos struct in Rust fn set_zoom_pan(scr_pos: Pos) {
+// Implementation goes here
+// }
 
-// Equivalent of void centerBoard();
-fn center_board() {
-    // Implementation goes here
-}
+// Equivalent of void centerBoard(); fn center_board() {
+// Implementation goes here
+// }
 
 // // Equivalent of nanogui::Slider* zoomSlider;
 // // You'll need to define the Slider struct in Rust
@@ -104,11 +158,9 @@ fn center_board() {
 // // Equivalent of int windowH = 1080 - 200;
 // let window_h: i32 = 1080 - 200;
 
-// Equivalent of const int WINDOW_WIDTH_MIN = 500;
-const WINDOW_WIDTH_MIN: i32 = 500;
+// Equivalent of const int WINDOW_WIDTH_MIN = 500; const WINDOW_WIDTH_MIN: i32 = 500;
 
-// Equivalent of const int WINDOW_HEIGHT_MIN = 500;
-const WINDOW_HEIGHT_MIN: i32 = 500;
+// Equivalent of const int WINDOW_HEIGHT_MIN = 500; const WINDOW_HEIGHT_MIN: i32 = 500;
 
 // // Equivalent of bool isShowRatsNestEnabled = true;
 // let is_show_rats_nest_enabled: bool = true;
@@ -150,20 +202,17 @@ const WINDOW_HEIGHT_MIN: i32 = 500;
 // // You'll need to define the ThreadStop struct in Rust
 // let thread_stop_router = ThreadStop::new();
 
-// Equivalent of void stopRouterThreads();
-fn stop_router_threads() {
-    // Implementation goes here
-}
+// Equivalent of void stopRouterThreads(); fn stop_router_threads() {
+// Implementation goes here
+// }
 
-// Equivalent of void routerThread();
-fn router_thread() {
-    // Implementation goes here
-}
+// Equivalent of void routerThread(); fn router_thread() {
+// Implementation goes here
+// }
 
-// Equivalent of void launchRouterThreads();
-fn launch_router_threads() {
-    // Implementation goes here
-}
+// Equivalent of void launchRouterThreads(); fn launch_router_threads() {
+// Implementation goes here
+// }
 
 // Equivalent of std::thread parserThreadObj;
 // let parser_thread_obj: Option<thread::JoinHandle<()>> = None;
@@ -171,20 +220,17 @@ fn launch_router_threads() {
 // Equivalent of ThreadStop threadStopParser;
 // let thread_stop_parser = ThreadStop::new();
 
-// Equivalent of void stopParserThread();
-fn stop_parser_thread() {
-    // Implementation goes here
-}
+// Equivalent of void stopParserThread(); fn stop_parser_thread() {
+// Implementation goes here
+// }
 
-// Equivalent of void parserThread();
-fn parser_thread() {
-    // Implementation goes here
-}
+// Equivalent of void parserThread(); fn parser_thread() {
+// Implementation goes here
+// }
 
-// Equivalent of void launchParserThread();
-fn launch_parser_thread() {
-    // Implementation goes here
-}
+// Equivalent of void launchParserThread(); fn launch_parser_thread() {
+// Implementation goes here
+// }
 
 // Equivalent of bool isComponentDragActive = false;
 // let is_component_drag_active: bool = false;
@@ -208,15 +254,13 @@ fn launch_parser_thread() {
 // let drag_text = ogl_text::OglText::new(DIAG_FONT_PATH, DRAG_FONT_SIZE);
 
 // Equivalent of void handleMouseDragOperations(const IntPos& mouseScrPos);
-// You'll need to define the IntPos struct in Rust
-fn handle_mouse_drag_operations(mouse_scr_pos: &IntPos) {
-    // Implementation goes here
-}
+// You'll need to define the IntPos struct in Rust fn handle_mouse_drag_operations(mouse_scr_pos: &IntPos) {
+// Implementation goes here
+// }
 
-// Equivalent of void renderDragStatus(IntPos mouseScrPos);
-fn render_drag_status(mouse_scr_pos: IntPos) {
-    // Implementation goes here
-}
+// Equivalent of void renderDragStatus(IntPos mouseScrPos); fn render_drag_status(mouse_scr_pos: IntPos) {
+// Implementation goes here
+// }
 
 // Equivalent of Layout inputLayout;
 // You'll need to define the Layout struct in Rust
@@ -228,14 +272,11 @@ fn render_drag_status(mouse_scr_pos: IntPos) {
 // // Equivalent of Layout bestLayout;
 // let best_layout = Layout::new();
 
-// Equivalent of const int N_ORGANISMS_IN_POPULATION = 1000;
-const N_ORGANISMS_IN_POPULATION: i32 = 1000;
+// Equivalent of const int N_ORGANISMS_IN_POPULATION = 1000; const N_ORGANISMS_IN_POPULATION: i32 = 1000;
 
-// Equivalent of const double CROSSOVER_RATE = 0.7;
-const CROSSOVER_RATE: f64 = 0.7;
+// Equivalent of const double CROSSOVER_RATE = 0.7; const CROSSOVER_RATE: f64 = 0.7;
 
-// Equivalent of const double MUTATION_RATE = 0.01;
-const MUTATION_RATE: f64 = 0.01;
+// Equivalent of const double MUTATION_RATE = 0.01; const MUTATION_RATE: f64 = 0.01;
 
 // Equivalent of GeneticAlgorithm geneticAlgorithm(N_ORGANISMS_IN_POPULATION, CROSSOVER_RATE, MUTATION_RATE);
 // You'll need to define the GeneticAlgorithm struct in Rust
@@ -245,25 +286,22 @@ const MUTATION_RATE: f64 = 0.01;
 // You'll need to define the Render struct in Rust
 // let render = Render::new();
 
-// Equivalent of void resetInputLayout();
-fn reset_input_layout() {
-    // Implementation goes here
-}
+// Equivalent of void resetInputLayout(); fn reset_input_layout() {
+// Implementation goes here
+// }
 
 // Equivalent of nanogui::Button* saveBestLayoutButton;
 // let save_best_layout_button: Option<Button> = None;
 
-// Equivalent of std::string CIRCUIT_FILE_PATH = "./circuits/example.circuit";
-static CIRCUIT_FILE_PATH: &'static str = "./circuits/example.circuit";
+// Equivalent of std::string CIRCUIT_FILE_PATH = "./circuits/example.circuit"; static CIRCUIT_FILE_PATH: &'static str = "./circuits/example.circuit";
 
 // Equivalent of Status status;
 // You'll need to define the Status struct in Rust
 // let status = Status::new();
 
-// Equivalent of void printStats();
-fn print_stats() {
-    // Implementation goes here
-}
+// Equivalent of void printStats(); fn print_stats() {
+// Implementation goes here
+// }
 
 // Equivalent of TrackAverage averageRenderTime(60);
 // You'll need to define the TrackAverage struct in Rust
@@ -275,28 +313,24 @@ fn print_stats() {
 // Equivalent of ThreadStop threadStopApp;
 // let thread_stop_app = ThreadStop::new();
 
-// Equivalent of void runHeadless();
-fn run_headless() {
-    // Implementation goes here
-}
+// Equivalent of void runHeadless(); fn run_headless() {
+// Implementation goes here
+// }
 
-// Equivalent of void runGui();
-fn run_gui() {
-    // Implementation goes here
-}
+// Equivalent of void runGui(); fn run_gui() {
+// Implementation goes here
+// }
 
-// Equivalent of void exitApp();
-fn exit_app() {
-    // Implementation goes here
-}
+// Equivalent of void exitApp(); fn exit_app() {
+// Implementation goes here
+// }
 
 // Equivalent of volatile bool isParserPaused = true;
-let is_parser_paused: Arc<Mutex<bool>> = Arc::new(Mutex::new(true));
+// let is_parser_paused: Arc<Mutex<bool>> = Arc::new(Mutex::new(true));
 
-// Equivalent of void parseCommandLineArgs(int argc, char** argv);
-fn parse_command_line_args(args: Vec<String>) {
-    // Implementation goes here
-}
+// Equivalent of void parseCommandLineArgs(int argc, char** argv); fn parse_command_line_args(args: Vec<String>) {
+// Implementation goes here
+// }
 
 // // Equivalent of bool noGui;
 // let no_gui: bool = false;
@@ -314,14 +348,4 @@ fn parse_command_line_args(args: Vec<String>) {
 // let checkpoint_at_num_checks: i64 = 0;
 //
 // // Equivalent of std::string circuitFilePath;
-// let circuit_file_path: String = String::new();
-mod via;
-mod layout;
-
-
-pub fn main() {
-    println!("Hello, world!");
-
-
-}
-
+// let circuit_file_path: String = String::new(); mod via;

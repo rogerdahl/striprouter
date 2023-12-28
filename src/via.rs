@@ -6,10 +6,10 @@ use std::hash::{Hash, Hasher};
 use std::cmp::Ordering;
 
 // Hold floating point screen and board positions
-type Pos = Vector2<f32>;
+pub(crate) type Pos = Vector2<f32>;
 
 // Hold integer positions
-type IntPos = Vector2<i32>;
+pub(crate) type IntPos = Vector2<i32>;
 
 //
 // Via (a hole in the stripboard)
