@@ -33,4 +33,5 @@ env_logger = { version = "0.10", default-features = false, features = [
     "humantime",
 ] }
 serde = { version = "1.0.193", features = [] }
+regex = "1.10.2"
 

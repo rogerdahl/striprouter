@@ -210,19 +210,12 @@ impl LayerCostVia {
 //
 
 pub struct StartEndVia {
-    start: Via,
-    end: Via,
+    pub(crate) start: Via,
+    pub(crate) end: Via,
 }
 
 impl StartEndVia {
-    pub fn new() -> Self {
-        Self {
-            start: Via::new(0, 0),
-            end: Via::new(0, 0),
-        }
-    }
-
-    pub fn from_vias(start: Via, end: Via) -> Self {
+    pub fn new(start: Via, end: Via) -> Self {
         Self { start, end }
     }
 }

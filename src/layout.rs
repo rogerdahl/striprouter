@@ -8,6 +8,7 @@
 use std::sync::Mutex;
 use std::time::Instant;
 use std::collections::HashSet;
+use crate::circuit::Circuit;
 
 use crate::via::{LayerStartEndVia, LayerVia, ValidVia, Via};
 
@@ -25,15 +26,15 @@ pub type ViaSetVec = Vec<ViaSet>;
 pub type SetIdxVec = Vec<i32>;
 
 pub struct Layout {
-    // circuit: Circuit,
+    pub(crate) circuit: Circuit,
     // settings: Settings,
-    grid_w: i32,
-    grid_h: i32,
+    pub(crate) grid_w: i32,
+    pub(crate) grid_h: i32,
     cost: i64,
     n_completed_routes: i32,
     n_failed_routes: i32,
     num_shortcuts: i32,
-    is_ready_for_routing: bool,
+    pub(crate) is_ready_for_routing: bool,
     is_ready_for_eval: bool,
     has_error: bool,
     layout_info_vec: StringVec,
@@ -58,7 +59,7 @@ impl Layout {
     pub fn new() -> Self {
         // Initialize the struct here
         Self {
-            // circuit: Circuit::new(),
+            circuit: Circuit::new(),
             // settings: Settings::new(),
             grid_w: 0,
             grid_h: 0,

@@ -4,6 +4,8 @@
 mod via;
 mod layout;
 mod render;
+pub mod circuit;
+mod circuit_parser;
 
 // // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
 // // <iostream>, <mutex>, <string>, <thread>, <vector>
@@ -14,6 +16,10 @@ mod render;
 // use std::io::{self, Write};
 // use std::vec::Vec;
 // use std::string::String;
+
+
+static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
+
 
 use via::{LayerStartEndVia, LayerVia, ValidVia, Via, Pos, IntPos};
 
@@ -62,6 +68,21 @@ impl eframe::App for MyApp {
         // UI elements
 
         egui::SidePanel::left("my_left_panel").show(ctx, |ui| {
+            // Parse a circuit file
+            ui.label("Parse a circuit file");
+            if ui.button("Parse").clicked() {
+                use std::time::Instant;
+
+                let start = Instant::now();
+
+                let mut layout = layout::Layout::new();
+                circuit_parser::CircuitFileParser::new(&mut layout).parse(CIRCUIT_FILE_PATH);
+
+                let duration = start.elapsed();
+                println!("Time elapsed in expensive_function() is: {:?}", duration);
+            }
+
+
             ui.label("Controls");
 
             ui.heading("My egui Application");
@@ -312,7 +333,6 @@ impl eframe::App for MyApp {
 // Equivalent of nanogui::Button* saveBestLayoutButton;
 // let save_best_layout_button: Option<Button> = None;
 
-// Equivalent of std::string CIRCUIT_FILE_PATH = "./circuits/example.circuit"; static CIRCUIT_FILE_PATH: &'static str = "./circuits/example.circuit";
 
 // Equivalent of Status status;
 // You'll need to define the Status struct in Rust
