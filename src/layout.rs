@@ -10,7 +10,7 @@ use std::time::Instant;
 use std::collections::HashSet;
 use crate::circuit::Circuit;
 
-use crate::via::{LayerStartEndVia, LayerVia, ValidVia, Via};
+use crate::via::{CostVia, CostViaVec, WireLayerViaVec, LayerStartEndVia, LayerVia, ValidVia, Via};
 
 
 pub type RouteStepVec = Vec<LayerVia>;
@@ -19,6 +19,7 @@ pub type RouteVec = Vec<RouteSectionVec>;
 pub type StringVec = Vec<String>;
 pub type RouteStatusVec = Vec<bool>;
 pub type StripCutVec = Vec<Via>;
+
 
 // Nets
 pub type ViaSet = HashSet<Via>;
@@ -30,29 +31,29 @@ pub struct Layout {
     // settings: Settings,
     pub(crate) grid_w: i32,
     pub(crate) grid_h: i32,
-    cost: i64,
-    n_completed_routes: i32,
-    n_failed_routes: i32,
-    num_shortcuts: i32,
+    pub(crate) cost: i64,
+    pub(crate) n_completed_routes: i32,
+    pub(crate) n_failed_routes: i32,
+    pub(crate) num_shortcuts: i32,
     pub(crate) is_ready_for_routing: bool,
-    is_ready_for_eval: bool,
-    has_error: bool,
-    layout_info_vec: StringVec,
-    route_vec: RouteVec,
-    strip_cut_vec: StripCutVec,
-    route_status_vec: RouteStatusVec,
+    pub(crate) is_ready_for_eval: bool,
+    pub(crate) has_error: bool,
+    pub(crate) layout_info_vec: StringVec,
+    pub(crate) route_vec: RouteVec,
+    pub(crate) strip_cut_vec: StripCutVec,
+    pub(crate) route_status_vec: RouteStatusVec,
     // Nets
-    via_set_vec: ViaSetVec,
-    set_idx_vec: SetIdxVec,
+    pub(crate) via_set_vec: ViaSetVec,
+    pub(crate) set_idx_vec: SetIdxVec,
     // Debug
-    diag_start_via: ValidVia,
-    diag_end_via: ValidVia,
-    // diag_cost_vec: CostViaVec,
-    diag_route_step_vec: RouteStepVec,
-    // diag_trace_vec: WireLayerViaVec,
-    error_string_vec: StringVec,
-    mutex_: Mutex<()>,
-    timestamp_: Instant,
+    pub(crate) diag_start_via: ValidVia,
+    pub(crate) diag_end_via: ValidVia,
+    pub(crate) diag_cost_vec: CostViaVec,
+    pub(crate) diag_route_step_vec: RouteStepVec,
+    pub(crate) diag_trace_vec: WireLayerViaVec,
+    pub(crate) error_string_vec: StringVec,
+    pub(crate) mutex_: Mutex<()>,
+    pub(crate) timestamp_: Instant,
 }
 
 impl Layout {
@@ -86,9 +87,9 @@ impl Layout {
             diag_start_via: ValidVia::new(),
             diag_end_via: ValidVia::new(),
 
-            // diag_cost_vec: CostViaVec::new(),
+            diag_cost_vec: CostViaVec::new(),
             diag_route_step_vec: RouteStepVec::new(),
-            // diag_trace_vec: WireLayerViaVec::new(),
+            diag_trace_vec: WireLayerViaVec::new(),
             error_string_vec: StringVec::new(),
             mutex_: Mutex::new(()),
             timestamp_: Instant::now(),

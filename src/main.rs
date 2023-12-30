@@ -1,11 +1,12 @@
 #![allow(unused)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod via;
-mod layout;
-mod render;
 pub mod circuit;
 mod circuit_parser;
+mod gui;
+mod layout;
+mod render;
+mod via;
 
 // // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
 // // <iostream>, <mutex>, <string>, <thread>, <vector>
@@ -17,19 +18,23 @@ mod circuit_parser;
 // use std::vec::Vec;
 // use std::string::String;
 
-
 static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
 
+use via::{IntPos, LayerStartEndVia, LayerVia, Pos, ValidVia, Via};
 
-use via::{LayerStartEndVia, LayerVia, ValidVia, Via, Pos, IntPos};
-
+use crate::layout::Layout;
+use crate::render::Render;
+use crate::via::StartEndVia;
 use eframe::egui;
-use crate::render::Painting;
+use eframe::emath::Align2;
+use eframe::epaint::Shape;
+use egui::{Pos2, TextStyle};
+use egui::introspection::font_id_ui;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([500.0, 500.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 1000.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -39,7 +44,10 @@ fn main() -> Result<(), eframe::Error> {
             // This gives us image support:
             // egui_extras::install_image_loaders(&cc.egui_ctx);
 
+            // setup_custom_fonts(&cc.egui_ctx);
+
             Box::<MyApp>::default()
+            // Box::<MyApp>::MyApp::new(cc)
         }),
     )
 }
@@ -47,19 +55,59 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     name: String,
     age: u32,
+    render: Render,
+    layout: Layout,
 }
+
+// impl MyApp {
+//     fn new(cc: &eframe::CreationContext<'_>) -> Self {
+//         setup_custom_fonts(&cc.egui_ctx);
+//         Self {
+//             name: "Arthur".to_owned(),
+//             age: 42,
+//         }
+//     }
+// }
 
 impl Default for MyApp {
     fn default() -> Self {
+        let mut layout = Layout::new();
+        circuit_parser::CircuitFileParser::new(&mut layout).parse(CIRCUIT_FILE_PATH);
+        println!("layout w={:?} h={:?}", layout.grid_w, layout.grid_h);
         Self {
             name: "Arthur".to_owned(),
             age: 42,
+            render: Render::new(30.0),
+            layout,
         }
     }
 }
 
 impl eframe::App for MyApp {
+    // fn setup(&mut self, ctx: &egui::Context) {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // This scales all UI elements
+        ctx.set_pixels_per_point(1.5);
+
+        // let mut fonts = egui::FontDefinitions::default();
+        // // let font_data = std::include_bytes!("../fonts/RobotoMono-Regular.ttf").to_vec();
+        // // let font = egui::Font::from_bytes(font_data);
+        // // let font_id = fonts..fonts_for_family.get_mut(&egui::TextStyle::Monospace).unwrap();
+        // // *font_id = Some(font);
+        // ctx.set_fonts(fonts);
+
+        // ctx.begin_frame();
+
+        // The collection of fonts used by epaint.
+        //
+        // Required in order to paint text. Create one and reuse. Cheap to clone.
+        //
+        // Each Fonts comes with a font atlas textures that needs to be used when painting.
+        //
+        // If you are using egui, use egui::Context::set_fonts and egui::Context::fonts.
+        //
+        // You need to call Self::begin_frame and Self::font_image_delta once every frame.
+
         // Exit if the Escape key is pressed
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             std::process::exit(0);
@@ -72,23 +120,21 @@ impl eframe::App for MyApp {
             ui.label("Parse a circuit file");
             if ui.button("Parse").clicked() {
                 use std::time::Instant;
-
                 let start = Instant::now();
 
-                let mut layout = layout::Layout::new();
-                circuit_parser::CircuitFileParser::new(&mut layout).parse(CIRCUIT_FILE_PATH);
+                circuit_parser::CircuitFileParser::new(&mut self.layout).parse(CIRCUIT_FILE_PATH);
 
                 let duration = start.elapsed();
                 println!("Time elapsed in expensive_function() is: {:?}", duration);
             }
-
 
             ui.label("Controls");
 
             ui.heading("My egui Application");
             ui.horizontal(|ui| {
                 let name_label = ui.label("Your name: ");
-                ui.text_edit_singleline(&mut self.name).labelled_by(name_label.id);
+                ui.text_edit_singleline(&mut self.name)
+                    .labelled_by(name_label.id);
             });
             ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
             if ui.button("Click each year").clicked() {
@@ -104,17 +150,119 @@ impl eframe::App for MyApp {
         // Stripboard
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Stripboard");
+            use egui::{Color32, FontId, RichText};
 
-            // Create an instance of Painting
-            let mut painting = Painting::default();
-            painting.ui_control(ui);
-            painting.ui_content(ui);
-            // render::Painting::ui_content(ui);
-            // ui_content
-            // render::Painting::render_stripboard(ctx, ui);
+            // ui.label("Normal text");
+            // ui.label(RichText::new("Large text").font(FontId::proportional(40.0)));
+            // ui.label(RichText::new("Red text").color(Color32::RED));ui.label("Stripboard");
+
+            // ui,put()
+            self.render.start_render(ctx);
+
+            // let x = RichText::new("Large text").font(FontId::proportional(40.0));
+            // let sx = Shape::text();
+            // // Shape::text(Pos::new(10.0, 10.0), x, (), Default::default(), Default::default(), Default::default()).fill(Color32::RED);
+            // ui.painter().add(sx);
+
+            self.render.draw(ctx, ui, &self.layout, true, false);
+
+            // for i in 1..self.layout.grid_w - 2 {
+            //     let x = StartEndVia::new(Via::new(i, 1), Via::new(i, self.layout.grid_h - 2));
+            //     self.render.draw_stripboard_section(ui, &x);
+            // }
+
+            // self.render.draw_text(
+            //     ctx,
+            //     ui,
+            //     Pos::new(10.0, 10.0),
+            //     "Hello World!",
+            //     egui::Color32::from_rgb(255, 255, 0),
+            // );
+
+
+            // Create a sub ui:
+            // ui.horizontal(|ui| {
+            //     // ui.fonts(|fonts| {
+            //     //     let font = fonts.get(font_id);
+            //     //     let font_size = font.size;
+            //     //     let text_style = TextStyle::Body;
+            //     //     let galley =
+            //     //         font.layout_multiline(text_style, "Hello World!", ui.available_width());
+            //     //     let pos = ui.cursor().min.translate((0.0, font_size * 1.0).into());
+            //     //     let text_color = ui.visuals().text_color();
+            //     //     ui.painter().galley(pos, galley);
+            //     // });
+            //
+            //     setup_custom_fonts(ctx);
+            //
+            //     let font_id = TextStyle::Body.resolve(ui.style());
+            //
+            //     ui.fonts(|f| {
+            //         let text_style = TextStyle::Body;
+            //         // let galley =
+            //         //     font.layout_multiline(text_style, "Hello World!", ui.available_width());
+            //         let s = Shape::text(
+            //             f,
+            //             Pos2::new(100.0, 100.0),
+            //             Align2::LEFT_BOTTOM,
+            //             "XXXXXXXXXXXXXXXX",
+            //             font_id,
+            //             ui.visuals().text_color(),
+            //         );
+            //
+            //         ui.painter().add(s);
+            //     });
+            // });
+
+
+            // ui.fonts(|f| {
+            //     let s = Shape::text(
+            //         f,
+            //         Pos2::new(100.0, 100.0),
+            //         Align2::LEFT_BOTTOM,
+            //         "XXXXXXXXXXXXXXXX",
+            //         font_id,
+            //         ui.visuals().text_color(),
+            //     );
+            //
+            //     ui.painter().add(s);
+            //
+            // });
+
+            self.render.end_render(ctx);
         });
     }
+}
+
+fn setup_custom_fonts(ctx: &egui::Context) {
+    // Start with the default fonts (we will be adding to them rather than replacing them).
+    let mut fonts = egui::FontDefinitions::default();
+
+    // Install my own font (maybe supporting non-latin characters).
+    // .ttf and .otf files supported.
+    fonts.font_data.insert(
+        "my_font".to_owned(),
+        egui::FontData::from_static(include_bytes!(
+            "/home/dahl/.fonts/Roboto/hinted/Roboto-Regular.ttf"
+        )),
+    );
+
+    // Put my font first (highest priority) for proportional text:
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    // Put my font as last fallback for monospace:
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .push("my_font".to_owned());
+
+    // Tell egui to use these fonts:
+    ctx.set_fonts(fonts);
 }
 
 // Equivalent of #include <GL/glew.h>, <GLFW/glfw3.h>
@@ -332,7 +480,6 @@ impl eframe::App for MyApp {
 
 // Equivalent of nanogui::Button* saveBestLayoutButton;
 // let save_best_layout_button: Option<Button> = None;
-
 
 // Equivalent of Status status;
 // You'll need to define the Status struct in Rust

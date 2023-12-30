@@ -57,8 +57,8 @@ fn str(v: &Via) -> String {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct ValidVia {
-    via: Via,
-    is_valid: bool,
+    pub(crate) via: Via,
+    pub(crate) is_valid: bool,
 }
 
 impl ValidVia {
@@ -87,8 +87,8 @@ impl ValidVia {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct LayerVia {
-    via: Via,
-    is_wire_layer: bool,
+    pub(crate) via: Via,
+    pub(crate) is_wire_layer: bool,
 }
 
 impl LayerVia {
@@ -226,8 +226,8 @@ impl StartEndVia {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct LayerStartEndVia {
-    start: LayerVia,
-    end: LayerVia,
+    pub(crate) start: LayerVia,
+    pub(crate) end: LayerVia,
 }
 
 impl LayerStartEndVia {
@@ -248,8 +248,8 @@ impl LayerStartEndVia {
 //
 
 pub struct WireLayerVia {
-    is_wire_side_blocked: bool,
-    wire_to_via: ValidVia,
+    pub(crate) is_wire_side_blocked: bool,
+    pub(crate) wire_to_via: ValidVia,
 }
 
 impl WireLayerVia {
@@ -261,15 +261,15 @@ impl WireLayerVia {
     }
 }
 
-type WireLayerViaVec = Vec<WireLayerVia>;
+pub(crate) type WireLayerViaVec = Vec<WireLayerVia>;
 
 //
 // CostVia
 //
 
 pub struct CostVia {
-    wire_cost: i32,
-    strip_cost: i32,
+    pub(crate) wire_cost: i32,
+    pub(crate) strip_cost: i32,
 }
 
 impl CostVia {
@@ -281,4 +281,4 @@ impl CostVia {
     }
 }
 
-type CostViaVec = Vec<CostVia>;
+pub(crate) type CostViaVec = Vec<CostVia>;

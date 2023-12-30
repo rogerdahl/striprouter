@@ -1,19 +1,34 @@
-use regex::Regex;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::string::String;
 use std::vec::Vec;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
+use crate::circuit::{Component, Connection, ConnectionPoint};
 use crate::layout::Layout;
 use crate::via::Via;
-use crate::circuit::{Component, Connection, ConnectionPoint};
 
 pub struct CircuitFileParser<'a> {
     layout: &'a mut Layout,
     offset: Via,
     aliases: Vec<(String, String)>,
+}
+
+lazy_static! {
+    static ref ALIAS_RX: Regex = Regex::new(r"^([\w.]+) = ([\w.]+)$").unwrap();
+    static ref COMMENT_OR_EMPTY_FULL_RX: Regex = Regex::new(r"^(#.*)?$").unwrap();
+    static ref BOARD_SIZE_RX: Regex = Regex::new(r"^board (\d+),(\d+)$").unwrap();
+    static ref OFFSET_RX: Regex = Regex::new(r"^offset (-?\d+),(-?\d+)$").unwrap();
+    static ref PKG_NAME_RX: Regex = Regex::new(r"^(\w+)\s(.*)").unwrap();
+    static ref PKG_SEP_RX: Regex = Regex::new(r"\s+").unwrap();
+    static ref PKG_POS_RX: Regex = Regex::new(r"(-?\d+),(-?\d+)").unwrap();
+    static ref COMPONENT_FULL_RX: Regex = Regex::new(r"^(\w+) (\w+) ?(\d+),(\d+)$").unwrap();
+    static ref CONNECTION_FULL_RX: Regex = Regex::new(r"^(\w+)\.(\d+) (\w+)\.(\d+)$").unwrap();
+    static ref DONT_CARE_FULL_RX: Regex = Regex::new(r"^(\w+) (\d+(,|$))+").unwrap();
+    static ref DONT_CARE_PIN_IDX_RX: Regex = Regex::new(r"(\d+)(,|$)").unwrap();
 }
 
 impl<'a> CircuitFileParser<'a> {
@@ -48,6 +63,7 @@ impl<'a> CircuitFileParser<'a> {
         self.layout.is_ready_for_routing = !self.layout.circuit.has_parser_error();
     }
 
+
     fn parse_line(&mut self, mut line_str: String) -> Result<(), String> {
         // Substitute aliases
         for alias in &self.aliases {
@@ -81,23 +97,23 @@ impl<'a> CircuitFileParser<'a> {
         };
     }
 
+
     fn parse_alias(&mut self, line_str: &str) -> bool {
-        let alias_rx = Regex::new(r"^([\w.]+) = ([\w.]+)$").unwrap();
-        if let Some(captures) = alias_rx.captures(line_str) {
+        if let Some(captures) = ALIAS_RX.captures(line_str) {
             self.aliases.push((captures[1].to_string(), captures[2].to_string()));
             return true;
         }
         false
     }
 
+
     fn parse_comment_or_empty(&self, line_str: &str) -> bool {
-        let comment_or_empty_full = Regex::new(r"^(#.*)?$").unwrap();
-        comment_or_empty_full.is_match(line_str)
+        COMMENT_OR_EMPTY_FULL_RX.is_match(line_str)
     }
 
+
     fn parse_board(&mut self, line_str: &str) -> bool {
-        let board_size_rx = Regex::new(r"^board (\d+),(\d+)$").unwrap();
-        if let Some(captures) = board_size_rx.captures(line_str) {
+        if let Some(captures) = BOARD_SIZE_RX.captures(line_str) {
             self.layout.grid_w = captures[1].parse::<i32>().unwrap();
             self.layout.grid_h = captures[2].parse::<i32>().unwrap();
             return true;
@@ -105,9 +121,9 @@ impl<'a> CircuitFileParser<'a> {
         false
     }
 
+
     fn parse_offset(&mut self, line_str: &str) -> bool {
-        let offset_rx = Regex::new(r"^offset (-?\d+),(-?\d+)$").unwrap();
-        if let Some(captures) = offset_rx.captures(line_str) {
+        if let Some(captures) = OFFSET_RX.captures(line_str) {
             self.offset.x = captures[1].parse::<i32>().unwrap();
             self.offset.y = captures[2].parse::<i32>().unwrap();
             return true;
@@ -116,15 +132,12 @@ impl<'a> CircuitFileParser<'a> {
     }
 
     fn parse_package(&mut self, line_str: &str) -> bool {
-        let pkg_name_rx = Regex::new(r"^(\w+)\s(.*)").unwrap();
-        let pkg_sep_rx = Regex::new(r"\s+").unwrap();
-        let pkg_pos_rx = Regex::new(r"(-?\d+),(-?\d+)").unwrap();
-        if let Some(captures) = pkg_name_rx.captures(line_str) {
+        if let Some(captures) = PKG_NAME_RX.captures(line_str) {
             let pkg_name = captures[1].to_string();
             let pkg_pos = captures[2].to_string();
             let mut v = Vec::new();
-            for s in pkg_sep_rx.split(&pkg_pos) {
-                if let Some(captures) = pkg_pos_rx.captures(s) {
+            for s in PKG_SEP_RX.split(&pkg_pos) {
+                if let Some(captures) = PKG_POS_RX.captures(s) {
                     v.push(Via::new(
                         captures[1].parse::<i32>().unwrap(),
                         captures[2].parse::<i32>().unwrap(),
@@ -139,9 +152,9 @@ impl<'a> CircuitFileParser<'a> {
         false
     }
 
+
     fn parse_component(&mut self, line_str: &str) -> bool {
-        let com_full = Regex::new(r"^(\w+) (\w+) ?(\d+),(\d+)$").unwrap();
-        if let Some(captures) = com_full.captures(line_str) {
+        if let Some(captures) = COMPONENT_FULL_RX.captures(line_str) {
             let component_name = captures[1].to_string();
             let package_name = captures[2].to_string();
             let x = captures[3].parse::<i32>().unwrap();
@@ -164,17 +177,16 @@ impl<'a> CircuitFileParser<'a> {
         false
     }
 
+
     fn parse_dont_care(&mut self, line_str: &str) -> bool {
-        let dont_care_full_rx = Regex::new(r"^(\w+) (\d+(,|$))+").unwrap();
-        let dont_care_pin_idx_rx = Regex::new(r"(\d+)(,|$)").unwrap();
-        if let Some(captures) = dont_care_full_rx.captures(line_str) {
+        if let Some(captures) = DONT_CARE_FULL_RX.captures(line_str) {
             let component_name = captures[1].to_string();
             let component = self.layout.circuit.component_name_to_component_map.get_mut(&component_name);
             match component {
                 None => panic!("Unknown component: {}", component_name),
                 Some(component) => {
                     let package_pos_vec = self.layout.circuit.package_to_pos_map.get(&component.package_name).unwrap();
-                    for captures in dont_care_pin_idx_rx.captures_iter(line_str) {
+                    for captures in DONT_CARE_PIN_IDX_RX.captures_iter(line_str) {
                         let dont_care_pin_idx = captures[1].parse::<i32>().unwrap();
                         if dont_care_pin_idx < 1 || dont_care_pin_idx as usize > package_pos_vec.len() {
                             panic!(
@@ -190,9 +202,9 @@ impl<'a> CircuitFileParser<'a> {
         }
         false
     }
+
     fn parse_connection(&mut self, line_str: &str) -> bool {
-        let com_full = Regex::new(r"^(\w+)\.(\d+) (\w+)\.(\d+)$").unwrap();
-        if let Some(captures) = com_full.captures(line_str) {
+        if let Some(captures) = CONNECTION_FULL_RX.captures(line_str) {
             let start = ConnectionPoint::new(
                 captures[1].to_string(),
                 captures[2].parse::<i32>().unwrap() - 1,
