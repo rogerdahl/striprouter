@@ -7,9 +7,6 @@ use crate::gui;
 use crate::layout::Layout;
 use crate::via::{Pos, StartEndVia, ValidVia, Via};
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(default))]
-
 const PI_F: f32 = PI;
 const CIRCUIT_FONT_SIZE: f32 = 1.0;
 // const CIRCUIT_FONT_PATH: &str = "/home/dahl/.fonts/Roboto/hinted/Roboto-Regular.ttf";

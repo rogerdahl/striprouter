@@ -55,8 +55,8 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     name: String,
     age: u32,
-    render: Render,
     layout: Layout,
+    zoom: f32,
 }
 
 // impl MyApp {
@@ -77,8 +77,8 @@ impl Default for MyApp {
         Self {
             name: "Arthur".to_owned(),
             age: 42,
-            render: Render::new(30.0),
             layout,
+            zoom: 1.0,
         }
     }
 }
@@ -128,19 +128,22 @@ impl eframe::App for MyApp {
                 println!("Time elapsed in expensive_function() is: {:?}", duration);
             }
 
+            ui.heading("Status");
             ui.label("Controls");
 
-            ui.heading("My egui Application");
             ui.horizontal(|ui| {
                 let name_label = ui.label("Your name: ");
                 ui.text_edit_singleline(&mut self.name)
                     .labelled_by(name_label.id);
             });
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            if ui.button("Click each year").clicked() {
-                self.age += 1;
-            }
-            ui.label(format!("Hello '{}', age {}", self.name, self.age));
+            ui.add(egui::Slider::new(&mut self.zoom, 1.0..=100.0).text("Zoom"));
+            // if ui.button("Click each year").clicked() {
+            //     self.age += 1;
+            // }
+            // ui.label(format!("Hello '{}', age {}", self.name, self.age));
+
+            ui.heading("Router");
+            ui.label("Controls");
 
             // ui.image(egui::include_image!(
             //     "../../../crates/egui/assets/ferris.png"
@@ -156,22 +159,22 @@ impl eframe::App for MyApp {
             // ui.label(RichText::new("Large text").font(FontId::proportional(40.0)));
             // ui.label(RichText::new("Red text").color(Color32::RED));ui.label("Stripboard");
 
-            // ui,put()
-            self.render.start_render(ctx);
+            let mut render = Render::new(self.zoom);
+            render.start_render(ctx);
 
             // let x = RichText::new("Large text").font(FontId::proportional(40.0));
             // let sx = Shape::text();
             // // Shape::text(Pos::new(10.0, 10.0), x, (), Default::default(), Default::default(), Default::default()).fill(Color32::RED);
             // ui.painter().add(sx);
 
-            self.render.draw(ctx, ui, &self.layout, true, false);
+            render.draw(ctx, ui, &self.layout, true, false);
 
             // for i in 1..self.layout.grid_w - 2 {
             //     let x = StartEndVia::new(Via::new(i, 1), Via::new(i, self.layout.grid_h - 2));
-            //     self.render.draw_stripboard_section(ui, &x);
+            //     render.draw_stripboard_section(ui, &x);
             // }
 
-            // self.render.draw_text(
+            // render.draw_text(
             //     ctx,
             //     ui,
             //     Pos::new(10.0, 10.0),
@@ -229,7 +232,7 @@ impl eframe::App for MyApp {
             //
             // });
 
-            self.render.end_render(ctx);
+            render.end_render(ctx);
         });
     }
 }
