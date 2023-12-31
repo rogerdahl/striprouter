@@ -35,4 +35,5 @@ env_logger = { version = "0.10", default-features = false, features = [
 serde = { version = "1.0.193", features = [] }
 regex = "1.10.2"
 lazy_static = { version = "1.4.0", features = [] }
+rand = "0.8.5"
 

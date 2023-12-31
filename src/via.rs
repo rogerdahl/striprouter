@@ -85,7 +85,7 @@ impl ValidVia {
 // LayerVia
 //
 
-#[derive(Eq, PartialEq, PartialOrd, Clone)]
+#[derive(Eq, PartialEq, PartialOrd, Clone, Copy, Hash)]
 pub struct LayerVia {
     pub(crate) via: Via,
     pub(crate) is_wire_layer: bool,
@@ -145,10 +145,18 @@ impl LayerVia {
 // LayerCostVia
 //
 
-// #[derive(Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct LayerCostVia {
-    layer_via: LayerVia,
-    cost: i32,
+    pub(crate) layer_via: LayerVia,
+    pub(crate) cost: i32,
+}
+
+impl Ord for LayerCostVia {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_tuple = (self.cost, self.layer_via.via.x, self.layer_via.via.y, self.layer_via.is_wire_layer);
+        let other_tuple = (other.cost, other.layer_via.via.x, other.layer_via.via.y, other.layer_via.is_wire_layer);
+        self_tuple.cmp(&other_tuple).reverse()
+    }
 }
 
 impl LayerCostVia {
@@ -267,6 +275,7 @@ pub(crate) type WireLayerViaVec = Vec<WireLayerVia>;
 // CostVia
 //
 
+#[derive(Eq, PartialEq, PartialOrd, Clone, Ord)]
 pub struct CostVia {
     pub(crate) wire_cost: i32,
     pub(crate) strip_cost: i32,

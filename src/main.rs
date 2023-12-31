@@ -7,6 +7,14 @@ mod gui;
 mod layout;
 mod render;
 mod via;
+mod ga_interface;
+mod ga_core;
+mod settings;
+mod status;
+mod ucs;
+mod router;
+mod thread_stop;
+mod nets;
 
 // // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
 // // <iostream>, <mutex>, <string>, <thread>, <vector>
@@ -30,6 +38,7 @@ use eframe::emath::Align2;
 use eframe::epaint::Shape;
 use egui::{Pos2, TextStyle};
 use egui::introspection::font_id_ui;
+use crate::ga_interface::GeneticAlgorithm;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -145,9 +154,26 @@ impl eframe::App for MyApp {
             ui.heading("Router");
             ui.label("Controls");
 
-            // ui.image(egui::include_image!(
-            //     "../../../crates/egui/assets/ferris.png"
-            // ));
+            if ui.button("Test GA").clicked() {
+                // Test the GA by generating a sequence of numbers in random order
+                // and telling the GA that costs are higher the more out of order
+                // the ordering is. The GA should learn to generate orderings that
+                // are in order.
+                let mut g = GeneticAlgorithm::new(1000, 0.7, 0.01);
+                g.reset(10);
+                for _ in 0..100000 {
+                    let ordering_idx = g.reserve_ordering();
+                    let ordering = g.get_ordering(ordering_idx);
+                    println!("ordering={:?}", ordering);
+                    let mut cost = 0;
+                    for i in 0..ordering.len() {
+                        cost += ordering[i] * (i+1) as i32;
+                    }
+                    g.release_ordering(ordering_idx, 10, cost as i64);
+                }
+            }
+
+
         });
 
         // Stripboard

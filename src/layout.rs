@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 use std::collections::HashSet;
 use crate::circuit::Circuit;
+use crate::settings::Settings;
 
 use crate::via::{CostVia, CostViaVec, WireLayerViaVec, LayerStartEndVia, LayerVia, ValidVia, Via};
 
@@ -28,7 +29,7 @@ pub type SetIdxVec = Vec<i32>;
 
 pub struct Layout {
     pub(crate) circuit: Circuit,
-    // settings: Settings,
+    pub(crate) settings: Settings,
     pub(crate) grid_w: i32,
     pub(crate) grid_h: i32,
     pub(crate) cost: i64,
@@ -61,7 +62,7 @@ impl Layout {
         // Initialize the struct here
         Self {
             circuit: Circuit::new(),
-            // settings: Settings::new(),
+            settings: Settings::new(),
             grid_w: 0,
             grid_h: 0,
 

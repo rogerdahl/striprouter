@@ -19,9 +19,11 @@ const WIRE_WIDTH: f32 = 0.125;
 const RATS_NEST_WIRE_WIDTH: f32 = 0.2;
 const CONNECTION_WIDTH: f32 = 0.1;
 const LABEL_SIZE_POINT: f32 = 0.75;
+const DIAG_SIZE_POINT: f32 = 0.25;
 
 pub struct Render {
-    font_id: FontId,
+    label_font_id: FontId,
+    diag_font_id: FontId,
     zoom: f32,
     mouse_board_pos: Pos,
 }
@@ -29,7 +31,8 @@ pub struct Render {
 impl Render {
     pub fn new(zoom: f32) -> Self {
         Self {
-            font_id: FontId::new(zoom * LABEL_SIZE_POINT, FontFamily::Monospace),
+            label_font_id: FontId::new(zoom * LABEL_SIZE_POINT, FontFamily::Monospace),
+            diag_font_id: FontId::new(zoom * DIAG_SIZE_POINT, FontFamily::Monospace),
             zoom,
             mouse_board_pos: Pos::new(0.0, 0.0),
         }
@@ -114,8 +117,6 @@ impl Render {
     }
 
     pub fn draw_components(&self, ui: &mut Ui, layout: &Layout) {
-        // let component_text = text::Layout::new();
-        // component_text.set_font_height((CIRCUIT_FONT_SIZE * ZOOM) as i32);
         for (component_name, component) in &layout.circuit.component_name_to_component_map {
             // Footprint
             let footprint = layout
@@ -419,10 +420,7 @@ impl Render {
                 is_valid: true,
             }
         } else {
-            ValidVia {
-                via: v,
-                is_valid: false,
-            }
+            ValidVia { via: v, is_valid: false, }
         }
     }
 
@@ -492,7 +490,7 @@ impl Render {
                 Align2::LEFT_CENTER
             },
             text,
-            self.font_id.clone(),
+            self.label_font_id.clone(),
             Color32::WHITE,
         );
     }
