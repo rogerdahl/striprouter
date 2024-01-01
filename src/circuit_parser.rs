@@ -114,8 +114,8 @@ impl<'a> CircuitFileParser<'a> {
 
     fn parse_board(&mut self, line_str: &str) -> bool {
         if let Some(captures) = BOARD_SIZE_RX.captures(line_str) {
-            self.layout.board.w = captures[1].parse::<usize>().unwrap();
-            self.layout.board.h = captures[2].parse::<usize>().unwrap();
+            self.layout.board.w = captures[1].parse::<i32>().unwrap() as usize;
+            self.layout.board.h = captures[2].parse::<i32>().unwrap() as usize;
             return true;
         }
         false
@@ -124,8 +124,8 @@ impl<'a> CircuitFileParser<'a> {
 
     fn parse_offset(&mut self, line_str: &str) -> bool {
         if let Some(captures) = OFFSET_RX.captures(line_str) {
-            self.offset.x = captures[1].parse::<usize>().unwrap();
-            self.offset.y = captures[2].parse::<usize>().unwrap();
+            self.offset.x = captures[1].parse::<i32>().unwrap();
+            self.offset.y = captures[2].parse::<i32>().unwrap();
             return true;
         }
         false
@@ -139,8 +139,8 @@ impl<'a> CircuitFileParser<'a> {
             for s in PKG_SEP_RX.split(&pkg_pos) {
                 if let Some(captures) = PKG_POS_RX.captures(s) {
                     v.push(Via::new(
-                        captures[1].parse::<usize>().unwrap(),
-                        captures[2].parse::<usize>().unwrap(),
+                        captures[1].parse::<i32>().unwrap(),
+                        captures[2].parse::<i32>().unwrap(),
                     ));
                 } else {
                     return false;
@@ -157,8 +157,8 @@ impl<'a> CircuitFileParser<'a> {
         if let Some(captures) = COMPONENT_FULL_RX.captures(line_str) {
             let component_name = captures[1].to_string();
             let package_name = captures[2].to_string();
-            let x = captures[3].parse::<usize>().unwrap();
-            let y = captures[4].parse::<usize>().unwrap();
+            let x = captures[3].parse::<i32>().unwrap();
+            let y = captures[4].parse::<i32>().unwrap();
             if !self.layout.circuit.package_to_pos_map.contains_key(&package_name) {
                 panic!("Unknown package: {}", package_name);
             }
@@ -187,7 +187,7 @@ impl<'a> CircuitFileParser<'a> {
                 Some(component) => {
                     let package_pos_vec = self.layout.circuit.package_to_pos_map.get(&component.package_name).unwrap();
                     for captures in DONT_CARE_PIN_IDX_RX.captures_iter(line_str) {
-                        let dont_care_pin_idx = captures[1].parse::<usize>().unwrap();
+                        let dont_care_pin_idx = captures[1].parse::<i32>().unwrap();
                         if dont_care_pin_idx < 1 || dont_care_pin_idx  > package_pos_vec.len() {
                             panic!(
                                 "Invalid \"Don't Care\" pin number for {}: {}. Must be between 1 and {} (including)",
@@ -207,11 +207,11 @@ impl<'a> CircuitFileParser<'a> {
         if let Some(captures) = CONNECTION_FULL_RX.captures(line_str) {
             let start = ConnectionPoint::new(
                 captures[1].to_string(),
-                captures[2].parse::<usize>().unwrap() - 1,
+                captures[2].parse::<i32>().unwrap() - 1,
             );
             let end = ConnectionPoint::new(
                 captures[3].to_string(),
-                captures[4].parse::<usize>().unwrap() - 1,
+                captures[4].parse::<i32>().unwrap() - 1,
             );
             self.check_connection_point(&start);
             self.check_connection_point(&end);
