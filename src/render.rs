@@ -6,13 +6,15 @@ use nalgebra::center;
 use crate::gui;
 use crate::layout::Layout;
 use crate::via::{Pos, StartEndVia, ValidVia, Via};
+// use crate::board;
+// use crate::board::Board;
 
 const PI_F: f32 = PI;
 const CIRCUIT_FONT_SIZE: f32 = 1.0;
 // const CIRCUIT_FONT_PATH: &str = "/home/dahl/.fonts/Roboto/hinted/Roboto-Regular.ttf";
-const NOTATION_FONT_SIZE: i32 = 10;
+const NOTATION_FONT_SIZE: usize = 10;
 const SET_DIM: f32 = 0.3;
-const NUM_VIA_TRIANGLES: i32 = 16;
+const NUM_VIA_TRIANGLES: usize = 16;
 const CUT_WIDTH: f32 = 0.83;
 const VIA_RADIUS: f32 = 0.2;
 const WIRE_WIDTH: f32 = 0.125;
@@ -51,11 +53,12 @@ impl Render {
         &mut self,
         ctx: &Context,
         ui: &mut Ui,
+        // board: Board,
         layout: &Layout,
         // board_screen_offset: &Pos,
         // mouse_board_pos: &Pos,
-        // window_w: i32,
-        // window_h: i32,
+        // window_w: usize,
+        // window_h: usize,
         show_rats_nest: bool,
         show_only_failed: bool,
     ) {
@@ -128,10 +131,7 @@ impl Render {
             // Pins
             let mut is_pin0 = true;
             let mut pin_idx = 0;
-            for pin_via in layout
-                .circuit
-                .calc_component_pins(component_name.to_owned())
-            {
+            for pin_via in layout.circuit.calc_component_pins(component_name) {
                 let is_dont_care_pin = component.dont_care_pin_idx_set.contains(&pin_idx);
                 let color = if is_dont_care_pin {
                     self.color(0.0, 0.784, 0.0, 1.0)
@@ -173,22 +173,22 @@ impl Render {
         }
     }
 
-    pub fn draw_stripboard_section(&self, ui: &mut Ui, via_start_end: &StartEndVia) {
+    pub fn draw_stripboard_section(&self, ui: &mut Ui, start_end_via: &StartEndVia) {
         // Copper strip
-        let mut y1 = via_start_end.start.y;
-        let mut y2 = via_start_end.end.y;
+        let mut y1 = start_end_via.start.y;
+        let mut y2 = start_end_via.end.y;
         if y1 > y2 {
             std::mem::swap(&mut y1, &mut y2);
         }
         let start = Pos::new(
-            via_start_end.start.x as f32 - CUT_WIDTH / 2.0,
+            start_end_via.start.x as f32 - CUT_WIDTH / 2.0,
             y1 as f32 - 0.40,
         );
         let end = Pos::new(
-            via_start_end.start.x as f32 + CUT_WIDTH / 2.0,
+            start_end_via.start.x as f32 + CUT_WIDTH / 2.0,
             y2 as f32 + 0.40,
         );
-        // let f = self.set_alpha(&via_start_end.start);
+        // let f = self.set_alpha(&start_end_via.start);
         let strip_color = self.color(0.85, 0.565, 0.345, 1.0);
         let via_color = self.color(0.0, 0.0, 0.0, 1.0);
         self.draw_filled_rectangle(ui, start, end, strip_color);
@@ -196,7 +196,7 @@ impl Render {
         for y in y1..=y2 {
             self.draw_filled_circle(
                 ui,
-                Pos::new(via_start_end.start.x as f32, y as f32),
+                Pos::new(start_end_via.start.x as f32, y as f32),
                 VIA_RADIUS,
                 via_color,
             );
@@ -207,14 +207,8 @@ impl Render {
         for v in &layout.strip_cut_vec {
             let half_strip_w = CUT_WIDTH / 2.0;
             let half_cut_h = 0.08 / 2.0;
-            let start = Pos::new(
-                (v.x - half_strip_w as i32) as f32,
-                (v.y - half_cut_h as i32) as f32,
-            );
-            let end = Pos::new(
-                (v.x + half_strip_w as i32) as f32,
-                (v.y + half_cut_h as i32) as f32,
-            );
+            let start = Pos::new((v.x as f32 - half_strip_w), (v.y as f32 - half_cut_h));
+            let end = Pos::new((v.x as f32 + half_strip_w), (v.y as f32 + half_cut_h));
             self.draw_filled_rectangle(
                 ui,
                 start - Pos::new(0.0, 0.5),
@@ -255,7 +249,7 @@ impl Render {
 
     pub fn draw_border(&self, ui: &mut Ui, layout: &Layout) {
         let start = Pos::new(0.0, 0.0); // - 0.5;
-        let end = Pos::new(layout.grid_w as f32 - 1.0, layout.grid_h as f32 - 1.0); // + 0.5;
+        let end = Pos::new(layout.board.w as f32 - 1.0, layout.board.h as f32 - 1.0); // + 0.5;
         let color = self.color(0.0, 0.0, 0.0, 1.0);
         let radius = 0.2;
         self.draw_thick_line(ui, start, Pos::new(end.x, start.y), radius, color);
@@ -275,11 +269,11 @@ impl Render {
             self.draw_filled_circle(ui, v.via.cast::<f32>(), 1.0, rgba);
         }
         // Draw dots where costs have been set.
-        for y in 0..layout.grid_h {
-            for x in 0..layout.grid_w {
-                let idx = x + layout.grid_w * y;
-                let v = &layout.diag_cost_vec[idx as usize];
-                if v.wire_cost != i32::MAX {
+        for y in 0..layout.board.h {
+            for x in 0..layout.board.w {
+                let idx = x + layout.board.w * y;
+                let v = &layout.diag_cost_vec[idx];
+                if v.wire_cost != usize::MAX {
                     self.draw_filled_circle(
                         ui,
                         Pos::new(x as f32 - 0.2, y as f32),
@@ -287,7 +281,7 @@ impl Render {
                         self.color(1.0, 0.0, 0.0, 1.0),
                     );
                 }
-                if v.strip_cost != i32::MAX {
+                if v.strip_cost != usize::MAX {
                     self.draw_filled_circle(
                         ui,
                         Pos::new(x as f32 + 0.2, y as f32),
@@ -327,10 +321,9 @@ impl Render {
             );
         }
         // Draw wire jump labels
-        for y in 0..layout.grid_h {
-            for x in 0..layout.grid_w {
-                let wire_to_via =
-                    &layout.diag_trace_vec[layout.idx(&Via::new(x, y)) as usize].wire_to_via;
+        for y in 0..layout.board.h {
+            for x in 0..layout.board.w {
+                let wire_to_via = &layout.diag_trace_vec[layout.board.idx(Via::new(x, y))].wire_to_via;
                 if wire_to_via.is_valid {
                     self.print_notation(
                         ui,
@@ -359,10 +352,10 @@ impl Render {
         let v = self.get_mouse_via(ui, side_board_pos, layout); // RIGHT POS??
         if v.is_valid {
             n_line = 2;
-            let idx = layout.idx(&v.via);
+            let idx = layout.board.idx(v.via);
             self.print_notation(ui, self.mouse_board_pos, n_line, &format!("{}", v.via));
             n_line += 1;
-            let via_cost = &layout.diag_cost_vec[idx as usize];
+            let via_cost = &layout.diag_cost_vec[idx];
             self.print_notation(
                 ui,
                 self.mouse_board_pos,
@@ -377,7 +370,7 @@ impl Render {
                 &format!("stripCost: {}", via_cost.strip_cost),
             );
             n_line += 1;
-            let via_trace = &layout.diag_trace_vec[idx as usize];
+            let via_trace = &layout.diag_trace_vec[idx];
             self.print_notation(
                 ui,
                 self.mouse_board_pos,
@@ -390,7 +383,7 @@ impl Render {
             n_line += 1;
             let set_idx_size = layout.set_idx_vec.len();
             if set_idx_size > 0 {
-                let set_idx = layout.set_idx_vec[idx as usize];
+                let set_idx = layout.set_idx_vec[idx];
                 self.print_notation(
                     ui,
                     self.mouse_board_pos,
@@ -402,7 +395,7 @@ impl Render {
                     ui,
                     self.mouse_board_pos,
                     n_line,
-                    &format!("setSize: {}", layout.via_set_vec[set_idx as usize].len()),
+                    &format!("setSize: {}", layout.via_set_vec[set_idx].len()),
                 );
                 n_line += 1;
             }
@@ -411,17 +404,20 @@ impl Render {
 
     pub fn get_mouse_via(&self, ui: &mut Ui, pos: Pos, layout: &Layout) -> ValidVia {
         let v = Via::new(
-            (self.mouse_board_pos.x + 0.5) as i32,
-            (self.mouse_board_pos.y + 0.5) as i32,
+            (self.mouse_board_pos.x + 0.5) as usize,
+            (self.mouse_board_pos.y + 0.5) as usize,
         );
-        if v.x >= 0 && v.y >= 0 && v.x < layout.grid_w && v.y < layout.grid_h {
+        // if v.x >= 0 && v.y >= 0 && v.x < layout.board.w && v.y < layout.board.h {
             ValidVia {
                 via: v,
                 is_valid: true,
             }
-        } else {
-            ValidVia { via: v, is_valid: false, }
-        }
+        // } else {
+        //     ValidVia {
+        //         via: v,
+        //         is_valid: false,
+        //     }
+        // }
     }
 
     pub fn get_mouse_net(&self, ui: &mut Ui, pos: Pos, layout: &Layout) -> Vec<Via> {
@@ -430,20 +426,17 @@ impl Render {
         if !v.is_valid {
             return empty_via_set;
         }
-        let idx = layout.idx(&v.via);
-        assert!(idx < layout.set_idx_vec.len() as i32);
-        let set_idx = layout.set_idx_vec[idx as usize];
-        if set_idx == -1 {
+        let idx = layout.board.idx(v.via);
+        assert!(idx < layout.set_idx_vec.len());
+        let set_idx = layout.set_idx_vec[idx];
+        if set_idx == usize::MAX {
             empty_via_set
         } else {
-            layout.via_set_vec[set_idx as usize]
-                .clone()
-                .into_iter()
-                .collect()
+            layout.via_set_vec[set_idx].clone().into_iter().collect()
         }
     }
 
-    pub fn print_notation(&self, ui: &mut Ui, board_pos: Pos, n_line: i32, msg: &String) {
+    pub fn print_notation(&self, ui: &mut Ui, board_pos: Pos, n_line: usize, msg: &String) {
         let scr_pos = gui::board_to_scr_pos(&board_pos, self.zoom, &Pos::new(0.0, 0.0));
         self.draw_text(ui, board_pos, msg, self.color(0.0, 0.0, 0.0, 1.0), false);
     }

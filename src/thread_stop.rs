@@ -14,8 +14,8 @@ impl ThreadStop {
     }
 
     pub fn stop(&mut self) {
-        assert!(self.lock.is_none());
-        self.lock = Some(self.mutex.lock().unwrap());
+        // assert!(self.lock.is_none());
+        // self.lock = Some(self.mutex.lock().unwrap());
     }
 
     pub fn is_stopped(&self) -> bool {

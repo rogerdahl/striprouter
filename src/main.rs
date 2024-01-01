@@ -15,6 +15,7 @@ mod ucs;
 mod router;
 mod thread_stop;
 mod nets;
+mod board;
 
 // // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
 // // <iostream>, <mutex>, <string>, <thread>, <vector>
@@ -82,7 +83,7 @@ impl Default for MyApp {
     fn default() -> Self {
         let mut layout = Layout::new();
         circuit_parser::CircuitFileParser::new(&mut layout).parse(CIRCUIT_FILE_PATH);
-        println!("layout w={:?} h={:?}", layout.grid_w, layout.grid_h);
+        println!("layout w={:?} h={:?}", layout.board.w, layout.board.h);
         Self {
             name: "Arthur".to_owned(),
             age: 42,
@@ -167,9 +168,9 @@ impl eframe::App for MyApp {
                     println!("ordering={:?}", ordering);
                     let mut cost = 0;
                     for i in 0..ordering.len() {
-                        cost += ordering[i] * (i+1) as i32;
+                        cost += ordering[i] * (i+1) ;
                     }
-                    g.release_ordering(ordering_idx, 10, cost as i64);
+                    g.release_ordering(ordering_idx, 10, cost );
                 }
             }
 
@@ -195,8 +196,8 @@ impl eframe::App for MyApp {
 
             render.draw(ctx, ui, &self.layout, true, false);
 
-            // for i in 1..self.layout.grid_w - 2 {
-            //     let x = StartEndVia::new(Via::new(i, 1), Via::new(i, self.layout.grid_h - 2));
+            // for i in 1..self.board.w - 2 {
+            //     let x = StartEndVia::new(Via::new(i, 1), Via::new(i, self.board.h - 2));
             //     render.draw_stripboard_section(ui, &x);
             // }
 
@@ -329,9 +330,9 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 
 // Equivalent of std::string DIAG_FONT_PATH = "./fonts/RobotoMono-Regular.ttf"; static DIAG_FONT_PATH: &'static str = "./fonts/RobotoMono-Regular.ttf";
 
-// Equivalent of const int DIAG_FONT_SIZE = 12; const DIAG_FONT_SIZE: i32 = 12;
+// Equivalent of const int DIAG_FONT_SIZE = 12; const DIAG_FONT_SIZE: usize = 12;
 
-// Equivalent of const int DRAG_FONT_SIZE = 12; const DRAG_FONT_SIZE: i32 = 12;
+// Equivalent of const int DRAG_FONT_SIZE = 12; const DRAG_FONT_SIZE: usize = 12;
 
 // Equivalent of OglText diagText(DIAG_FONT_PATH, DIAG_FONT_SIZE);
 // You'll need to define the OglText struct in Rust
@@ -345,7 +346,7 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 
 // Equivalent of const float ZOOM_DEF = 2.0f; const ZOOM_DEF: f32 = 2.0;
 
-// Equivalent of const int INITIAL_BORDER_PIXELS = 50; const INITIAL_BORDER_PIXELS: i32 = 50;
+// Equivalent of const int INITIAL_BORDER_PIXELS = 50; const INITIAL_BORDER_PIXELS: usize = 50;
 
 // // Equivalent of float zoomLinear = ZOOM_DEF;
 // let zoom_linear = ZOOM_DEF;
@@ -370,14 +371,14 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 // let zoom_slider: Option<Slider> = None;
 //
 // // Equivalent of int windowW = 1920 / 2;
-// let window_w: i32 = 1920 / 2;
+// let window_w: usize = 1920 / 2;
 //
 // // Equivalent of int windowH = 1080 - 200;
-// let window_h: i32 = 1080 - 200;
+// let window_h: usize = 1080 - 200;
 
-// Equivalent of const int WINDOW_WIDTH_MIN = 500; const WINDOW_WIDTH_MIN: i32 = 500;
+// Equivalent of const int WINDOW_WIDTH_MIN = 500; const WINDOW_WIDTH_MIN: usize = 500;
 
-// Equivalent of const int WINDOW_HEIGHT_MIN = 500; const WINDOW_HEIGHT_MIN: i32 = 500;
+// Equivalent of const int WINDOW_HEIGHT_MIN = 500; const WINDOW_HEIGHT_MIN: usize = 500;
 
 // // Equivalent of bool isShowRatsNestEnabled = true;
 // let is_show_rats_nest_enabled: bool = true;
@@ -489,7 +490,7 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 // // Equivalent of Layout bestLayout;
 // let best_layout = Layout::new();
 
-// Equivalent of const int N_ORGANISMS_IN_POPULATION = 1000; const N_ORGANISMS_IN_POPULATION: i32 = 1000;
+// Equivalent of const int N_ORGANISMS_IN_POPULATION = 1000; const N_ORGANISMS_IN_POPULATION: usize = 1000;
 
 // Equivalent of const double CROSSOVER_RATE = 0.7; const CROSSOVER_RATE: f64 = 0.7;
 
@@ -557,10 +558,10 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 // let exit_on_first_complete: bool = false;
 //
 // // Equivalent of long exitAfterNumChecks;
-// let exit_after_num_checks: i64 = 0;
+// let exit_after_num_checks: usize = 0;
 //
 // // Equivalent of long checkpointAtNumChecks;
-// let checkpoint_at_num_checks: i64 = 0;
+// let checkpoint_at_num_checks: usize = 0;
 //
 // // Equivalent of std::string circuitFilePath;
 // let circuit_file_path: String = String::new(); mod via;

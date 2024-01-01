@@ -6,71 +6,71 @@ use std::sync::Mutex;
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashSet};
+use crate::board::Board;
 
 type FrontierPri = BinaryHeap<Reverse<LayerCostVia>>;
 type FrontierSet = HashSet<LayerVia>;
 type ExploredSet = HashSet<LayerVia>;
 
-pub struct UniformCostSearch<'a, 'b> {
-    router: &'a Router<'b, 'b>,
-    layout: &'a mut Layout,
-    nets: &'a Nets<'a>,
-    shortcut_end_via: &'a mut Via,
-    via_start_end: StartEndVia,
+pub struct UniformCostSearch {
     via_cost_vec: Vec<CostVia>,
     frontier_pri: FrontierPri,
     frontier_set: FrontierSet,
     explored_set: ExploredSet,
 }
 
-impl<'b, 'a> UniformCostSearch<'a, 'b> {
-    pub fn new(
-        router: &'a Router,
-        layout: &'a mut Layout,
-        nets: &'a Nets<'a>,
-        shortcut_end_via: &'a mut Via,
-        via_start_end: StartEndVia,
-    ) -> Self {
+impl UniformCostSearch {
+    pub fn new(board: Board) -> Self {
         Self {
-            router,
-            layout,
-            nets,
-            shortcut_end_via,
-            via_start_end,
-            via_cost_vec: vec![CostVia::new(); (layout.grid_w * layout.grid_h) as usize],
+            via_cost_vec: vec![CostVia::new(); (board.size())],
             frontier_pri: BinaryHeap::new(),
             frontier_set: HashSet::new(),
             explored_set: HashSet::new(),
         }
     }
 
-    pub fn find_lowest_cost_route(&mut self) -> RouteStepVec {
-        self.shortcut_end_via = &mut self.via_start_end.end;
-        let found_route = self.find_costs(self.shortcut_end_via);
-        // #ifndef NDEBUG
-        //   layout_.diagCostVec = viaCostVec_;
-        // #endif
+    pub fn find_lowest_cost_route(
+        &mut self,
+        board: Board,
+        layout: &mut Layout,
+        router: &mut Router,
+        start_end_via: StartEndVia,
+        shortcut_end_via: Via,
+    ) -> RouteStepVec {
+        let end = start_end_via.end.clone_owned();
+        let shortcut_end_via = Via::new(end.x, end.y);
+        let found_route = self.find_costs(board, router, start_end_via, shortcut_end_via);
         return if found_route {
-            self.backtrace_lowest_cost_route(StartEndVia {
-                start: self.via_start_end.start,
-                end: *self.shortcut_end_via,
-            })
+            self.backtrace_lowest_cost_route(
+                board,
+                layout,
+                StartEndVia {
+                            start: start_end_via.start,
+                            end: shortcut_end_via,
+                        })
         } else {
             RouteStepVec::new()
         };
     }
 
-    fn find_costs(&mut self, shortcut_end_via: &mut Via) -> bool {
-        let settings = &self.layout.settings;
+    fn find_costs(
+        &mut self,
+        board: Board,
+        // layout: &mut Layout,
+        router: &mut Router,
+        start_end_via: StartEndVia,
+        shortcut_end_via: Via,
+    ) -> bool {
+        // let settings = &layout.settings;
         let start = LayerVia {
-            via: self.via_start_end.start,
+            via: start_end_via.start,
             is_wire_layer: false,
         };
         let end = LayerVia {
-            via: self.via_start_end.end,
+            via: start_end_via.end,
             is_wire_layer: false,
         };
-        self.set_cost(start, 0);
+        self.set_cost(board, LayerCostVia::from_layer_via(start, 0));
         self.frontier_pri.push(Reverse(LayerCostVia {
             layer_via: start,
             cost: 0,
@@ -80,74 +80,77 @@ impl<'b, 'a> UniformCostSearch<'a, 'b> {
             is_wire_layer: false,
         });
         while !self.frontier_pri.is_empty() {
-            //#ifndef NDEBUG
-            //      layout_.errorStringVec.push_back(fmt::format("Debug:
-            //      UniformCostSearch::findCosts() No route found"));
-            //      layout_.diagStartVia = start.via;
-            //      layout_.diagEndVia = end.via;
-            //      layout_.hasError = true;
-            //#endif
             let node = self.frontier_pri.pop().unwrap();
-            self.frontier_set.remove(&node);
-            let node_cost = self.get_cost(node.via);
-            if self.router.is_target(node.via, end.via) {
-                // #ifndef NDEBUG
-                //     layout_.diagCostVec = viaCostVec_;
-                // #endif
+            self.frontier_set
+                .remove(&LayerVia::from_layer_cost_via(&node));
+            let node_cost = self.get_cost(board, node.0.layer_via);
+            if node.0.layer_via.is_target(end.via) {
                 return true;
             }
-            self.explored_set.insert(node.via);
-            if node.is_wire_layer {
-                self.explore_neighbour(node, self.step_left(node.via));
-                self.explore_neighbour(node, self.step_right(node.via));
-                self.explore_neighbour(node, self.step_to_strip(node.via));
-            } else {
-                self.explore_neighbour(node, self.step_up(node.via));
-                self.explore_neighbour(node, self.step_down(node.via));
-                self.explore_neighbour(node, self.step_to_wire(node.via));
-                let wire_to_via = self.router.wire_to_via_ref(node.via);
-                if wire_to_via.is_valid {
-                    self.explore_frontier(
-                        node,
-                        LayerVia {
-                            via: wire_to_via.via,
-                            is_wire_layer: false,
-                        },
-                    );
-                }
-            }
+            self.explored_set.insert(node.0.layer_via);
+            // if node.0.layer_via.is_wire_layer {
+
+            // must add shortcut_end_via to all of these
+
+            //     self.explore_neighbour(&mut node.0.clone(), self.step_left(node.0.layer_via));
+            //     self.explore_neighbour(node, self.step_right(node.0.layer_via));
+            //     self.explore_neighbour(node, self.step_to_strip(node.0.layer_via));
+            // } else {
+            //     self.explore_neighbour(node, self.step_up(node.0.layer_via));
+            //     self.explore_neighbour(node, self.step_down(node.0.layer_via));
+            //     self.explore_neighbour(node, self.step_to_wire(node.0.layer_via));
+            //     let wire_to_via = self.router.wire_to_via_ref(node.0.layer_via);
+            //     if wire_to_via.is_valid {
+            //         self.explore_frontier(
+            //             node,
+            //             LayerVia {
+            //                 via: wire_to_via.via,
+            //                 is_wire_layer: false,
+            //             },
+            //         );
+            //     }
+            // }
         }
         false
     }
 
-    fn explore_neighbour(&mut self, node: &mut LayerCostVia, n: LayerCostVia) {
-        if self.router.is_available(n.layer_via, self.via_start_end.start, *self.shortcut_end_via) {
-            self.explore_frontier(node, n);
+    fn explore_neighbour(
+        &mut self,
+        board: Board,
+        layout: &mut Layout,
+        router: &mut Router,
+        node: LayerCostVia,
+        n: LayerCostVia,
+        start_end_via: StartEndVia,
+        shortcut_end_via: Via,
+    ) {
+        if router.is_available(board, layout, n.layer_via, start_end_via.start, shortcut_end_via) {
+            self.explore_frontier(board, layout, node, n);
         }
     }
 
-    fn explore_frontier(&mut self, node: &mut LayerCostVia, mut n: LayerCostVia) {
+    fn explore_frontier(&mut self, board: Board, layout: &mut Layout, node: LayerCostVia, mut n: LayerCostVia) {
         if self.explored_set.contains(&n.layer_via) {
             return;
         }
         n.cost += node.cost;
-        self.set_cost(n.layer_via, n.cost);
+        self.set_cost(board, n);
         if !self.frontier_set.contains(&n.layer_via) {
             self.frontier_pri.push(Reverse(n.clone()));
             self.frontier_set.insert(n.layer_via.clone());
         } else {
-            let frontier_cost = self.get_cost(n.layer_via.clone());
+            let frontier_cost = self.get_cost(board, n.layer_via);
             if frontier_cost > n.cost {
-                node.cost = n.cost;
-                self.set_cost(node.layer_via.clone(), node.cost);
+                // node.cost = n.cost;
+                self.set_cost(board, node);
             }
         }
     }
 
-    fn backtrace_lowest_cost_route(&mut self, via_start_end: StartEndVia) -> RouteStepVec {
+    fn backtrace_lowest_cost_route(&mut self, board: Board, layout: &mut Layout, start_end_via: StartEndVia) -> RouteStepVec {
         let mut route_cost = 0;
-        let start = LayerVia::from_via(via_start_end.start, false);
-        let end = LayerVia::from_via(via_start_end.end, false);
+        let start = LayerVia::from_via(start_end_via.start, false);
+        let end = LayerVia::from_via(start_end_via.end, false);
         let mut route_step_vec = Vec::new();
         let mut c = end.clone();
         route_step_vec.push(c.clone());
@@ -155,114 +158,123 @@ impl<'b, 'a> UniformCostSearch<'a, 'b> {
         let mut check_stuck_cnt = 0;
 
         while c.via != start.via || c.is_wire_layer != start.is_wire_layer {
-            if check_stuck_cnt > self.layout.grid_w * self.layout.grid_h {
-                self.layout.error_string_vec.push(format!("Error: backtraceLowestCostRoute() stuck at {}", c.str()));
-                self.layout.diag_start_via = ValidVia::from_via(start.via, true);
-                self.layout.diag_end_via = ValidVia::from_via(end.via, true);
-                self.layout.diag_route_step_vec = route_step_vec.clone();
-                self.layout.has_error = true;
+            if check_stuck_cnt > board.w * board.h {
+                layout.error_string_vec.push(format!(
+                    "Error: backtraceLowestCostRoute() stuck at {}",
+                    c.str()
+                ));
+                layout.diag_start_via = ValidVia::from_via(start.via);
+                layout.diag_end_via = ValidVia::from_via(end.via);
+                layout.diag_route_step_vec = route_step_vec.clone();
+                layout.has_error = true;
                 break;
             }
 
             let mut n = c.clone();
             if c.is_wire_layer {
-                let n_left = self.step_left(c.via);
-                if c.via.x > 0 && self.get_cost(n_left) < self.get_cost(n) {
+                let n_left = self.step_left(c);
+                if c.via.x > 0 && self.get_cost(board, n_left) < self.get_cost(board, n) {
                     n = n_left;
                 }
-                let n_right = self.step_right(c.via);
-                if c.via.x < self.layout.grid_w - 1 && self.get_cost(n_right) < self.get_cost(n) {
+                let n_right = self.step_right(c);
+                if c.via.x < board.w - 1 && self.get_cost(board, n_right) < self.get_cost(board, n) {
                     n = n_right;
                 }
-                let n_strip = self.step_to_strip(c.via);
-                if self.get_cost(n_strip) < self.get_cost(n) {
+                let n_strip = self.step_to_strip(c);
+                if self.get_cost(board, n_strip) < self.get_cost(board, n) {
                     n = n_strip;
                 }
             } else {
-                let n_up = self.step_up(c.via);
-                if c.via.y > 0 && self.get_cost(n_up) < self.get_cost(n) {
+                let n_up = self.step_up(c);
+                if c.via.y > 0 && self.get_cost(board, n_up) < self.get_cost(board, n) {
                     n = n_up;
                 }
-                let n_down = self.step_down(c.via);
-                if c.via.y < self.layout.grid_h - 1 && self.get_cost(n_down) < self.get_cost(n) {
+                let n_down = self.step_down(c);
+                if c.via.y < board.h - 1 && self.get_cost(board, n_down) < self.get_cost(board, n) {
                     n = n_down;
                 }
-                let n_wire = self.step_to_wire(c.via);
-                if self.get_cost(n_wire) < self.get_cost(n) {
+                let n_wire = self.step_to_wire(c);
+                if self.get_cost(board, n_wire) < self.get_cost(board,n) {
                     n = n_wire;
                 }
 
-                let wire_to_via = self.router.wire_to_via_ref(c.via);
-                if wire_to_via.is_valid {
-                    let mut n_wire_jump = LayerVia::from_via(wire_to_via.via, false);
-                    if self.get_cost(n_wire_jump) < self.get_cost(n) {
-                        route_step_vec.push(LayerVia::from_via(c.via, true));
-                        let x1 = c.via.x;
-                        let x2 = n_wire_jump.via.x;
-                        let step = if x1 > x2 { -1 } else { 1 };
-                        for x in (x1..x2).step_by(step) {
-                            route_step_vec.push(LayerVia::from_via(Via::new(x, c.via.y), true));
-                        }
-                        if x1 != x2 {
-                            route_step_vec.push(LayerVia::from_via(Via::new(x2, c.via.y), true));
-                        }
-                        n = n_wire_jump;
-                    }
-                }
+                // let wire_to_via = self.router.wire_to_via_ref(c.via);
+                // if wire_to_via.is_valid {
+                //     let mut n_wire_jump = LayerVia::from_via(wire_to_via.via, false);
+                //     if self.get_cost(n_wire_jump) < self.get_cost(n) {
+                //         route_step_vec.push(LayerVia::from_via(c.via, true));
+                //         let x1 = c.via.x;
+                //         let x2 = n_wire_jump.via.x;
+                //         if (x1 > x2) {
+                //             for x in (x1..x2) {
+                //                 route_step_vec.push(LayerVia::from_via(Via::new(x, c.via.y), true));
+                //             }
+                //         } else {
+                //             for x in (x1..x2).rev() {
+                //                 route_step_vec.push(LayerVia::from_via(Via::new(x, c.via.y), true));
+                //             }
+                //         }
+                //         // The above is my replacement for this code that Copilot apparently screwed up on. It's not possible to step by -1.
+                //         // let step = if x1 > x2 { -1 } else { 1 };
+                //         // for x in (x1..x2).step_by(step) {
+                //         //     route_step_vec.push(LayerVia::from_via(Via::new(x, c.via.y), true));
+                //         // }
+                //         if x1 != x2 {
+                //             route_step_vec.push(LayerVia::from_via(Via::new(x2, c.via.y), true));
+                //         }
+                //         n = n_wire_jump;
+                //     }
+                // }
             }
-            route_cost += self.get_cost(c) - self.get_cost(n);
+            route_cost += self.get_cost(board, c) - self.get_cost(board, n);
             c = n;
             route_step_vec.push(c.clone());
         }
-        self.layout.cost += route_cost;
+        layout.cost += route_cost;
         route_step_vec.reverse();
 
         #[cfg(debug_assertions)]
         {
-            self.layout.diag_route_step_vec = route_step_vec.clone();
-            self.layout.diag_start_via = ValidVia::from_via(start.via, true);
-            self.layout.diag_end_via = ValidVia::from_via(end.via, true);
+            layout.diag_route_step_vec = route_step_vec.clone();
+            layout.diag_start_via = ValidVia::from_via(start.via);
+            layout.diag_end_via = ValidVia::from_via(end.via);
         }
 
         route_step_vec
     }
 
-    fn get_cost(&self, via_layer: LayerVia) -> i32 {
-        let i = self.layout.idx(&via_layer.via) as usize;
-        if via_layer.is_wire_layer {
+    fn get_cost(&self, board: Board, layer_via: LayerVia) -> usize {
+        let i = board.idx(layer_via.via);
+        if layer_via.is_wire_layer {
             self.via_cost_vec[i].wire_cost
         } else {
             self.via_cost_vec[i].strip_cost
         }
     }
 
-    fn set_cost(&mut self, via_layer: LayerVia, cost: i32) {
-        let i = self.layout.idx(&via_layer.via) as usize;
-        if via_layer.is_wire_layer {
-            self.via_cost_vec[i].wire_cost = cost;
+    fn set_cost(&mut self, board: Board, layer_cost_via: LayerCostVia) {
+        let i = board.idx(layer_cost_via.layer_via.via);
+        if layer_cost_via.layer_via.is_wire_layer {
+            self.via_cost_vec[i].wire_cost = layer_cost_via.cost;
         } else {
-            self.via_cost_vec[i].strip_cost = cost;
+            self.via_cost_vec[i].strip_cost = layer_cost_via.cost;
         }
     }
 
-    // fn set_cost(&mut self, via_layer_cost: LayerCostVia) {
-    //     self.set_cost(via_layer_cost.layer_via, via_layer_cost.cost);
-    // }
-
     fn step_left(&self, v: LayerVia) -> LayerVia {
-        LayerVia::from_via(v.via + Via::new(-1, 0), v.is_wire_layer)
+        LayerVia::from_via(Via::new(v.via.x - 1, v.via.y), v.is_wire_layer)
     }
 
     fn step_right(&self, v: LayerVia) -> LayerVia {
-        LayerVia::from_via(v.via + Via::new(1, 0), v.is_wire_layer)
+        LayerVia::from_via(Via::new(v.via.x + 1, v.via.y), v.is_wire_layer)
     }
 
     fn step_up(&self, v: LayerVia) -> LayerVia {
-        LayerVia::from_via(v.via + Via::new(0, -1), v.is_wire_layer)
+        LayerVia::from_via(Via::new(v.via.x, v.via.y - 1), v.is_wire_layer)
     }
 
     fn step_down(&self, v: LayerVia) -> LayerVia {
-        LayerVia::from_via(v.via + Via::new(0, 1), v.is_wire_layer)
+        LayerVia::from_via(Via::new(v.via.x, v.via.y + 1), v.is_wire_layer)
     }
 
     fn step_to_wire(&self, v: LayerVia) -> LayerVia {
@@ -274,7 +286,4 @@ impl<'b, 'a> UniformCostSearch<'a, 'b> {
         assert!(v.is_wire_layer);
         LayerVia::from_via(v.via, false)
     }
-
-
-
 }

@@ -3,53 +3,23 @@
 use nalgebra::{Vector2};
 // use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 
 // Hold floating point screen and board positions
-pub(crate) type Pos = Vector2<f32>;
+pub type Pos = Vector2<f32>;
 
 // Hold integer positions
-pub(crate) type IntPos = Vector2<i32>;
+pub type IntPos = Vector2<usize>;
 
 //
 // Via (a hole in the stripboard)
 //
 
-pub(crate) type Via = Vector2<i32>;
+pub type Via = Vector2<usize>;
 
 fn str(v: &Via) -> String {
     format!("{},{}", v.x, v.y)
 }
-
-// impl Hash for Via {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.x.hash(state);
-//         self.y.hash(state);
-//     }
-// }
-
-// impl PartialEq for Via {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.x == other.x && self.y == other.y
-//     }
-// }
-
-// impl Eq for Via {}
-
-// impl PartialOrd for Via {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-
-// impl Ord for Via {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         match self.x.cmp(&other.x) {
-//             Ordering::Equal => self.y.cmp(&other.y),
-//             other => other,
-//         }
-//     }
-// }
 
 //
 // ValidVia
@@ -57,8 +27,8 @@ fn str(v: &Via) -> String {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct ValidVia {
-    pub(crate) via: Via,
-    pub(crate) is_valid: bool,
+    pub via: Via,
+    pub is_valid: bool,
 }
 
 impl ValidVia {
@@ -87,8 +57,14 @@ impl ValidVia {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone, Copy, Hash)]
 pub struct LayerVia {
-    pub(crate) via: Via,
-    pub(crate) is_wire_layer: bool,
+    pub via: Via,
+    pub is_wire_layer: bool,
+}
+
+impl LayerVia {
+    pub fn from_layer_cost_via(p0: &Reverse<LayerCostVia>) -> LayerVia {
+        LayerVia::from_via(p0.0.layer_via.via, p0.0.layer_via.is_wire_layer)
+    }
 }
 
 impl LayerVia {
@@ -106,29 +82,22 @@ impl LayerVia {
     pub fn str(&self) -> String {
         format!("{}, {}", self.via.x, self.via.y)
     }
+
+    pub fn is_target(&self, target_via: Via) -> bool {
+        if self.is_wire_layer {
+            false
+        } else {
+            self.is_target_pin(target_via)
+        }
+    }
+
+    fn is_target_pin(&self, target_via: Via) -> bool {
+        self.via == target_via
+    }
+
+
 }
 
-// impl Hash for LayerVia {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.via.hash(state);
-//         self.is_wire_layer.hash(state);
-//     }
-// }
-//
-// impl PartialEq for LayerVia {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.via == other.via && self.is_wire_layer == other.is_wire_layer
-//     }
-// }
-//
-// impl Eq for LayerVia {}
-//
-// impl PartialOrd for LayerVia {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-//
 // // Implement Ord for LayerVia:
 // // - sort by via
 // // - if via is equal, sort by is_wire_layer
@@ -145,10 +114,10 @@ impl LayerVia {
 // LayerCostVia
 //
 
-#[derive(Eq, PartialEq, PartialOrd, Clone)]
+#[derive(Eq, PartialEq, PartialOrd, Clone, Copy)]
 pub struct LayerCostVia {
-    pub(crate) layer_via: LayerVia,
-    pub(crate) cost: i32,
+    pub layer_via: LayerVia,
+    pub cost: usize,
 }
 
 impl Ord for LayerCostVia {
@@ -167,11 +136,11 @@ impl LayerCostVia {
         }
     }
 
-    pub fn from_layer_via(layer_via: LayerVia, cost: i32) -> Self {
+    pub fn from_layer_via(layer_via: LayerVia, cost: usize) -> Self {
         Self { layer_via, cost }
     }
 
-    pub fn from_values(x: i32, y: i32, is_wire_layer: bool, cost: i32) -> Self {
+    pub fn from_values(x: usize, y: usize, is_wire_layer: bool, cost: usize) -> Self {
         Self {
             layer_via: LayerVia::from_via(Via::new(x, y), is_wire_layer),
             cost,
@@ -183,43 +152,14 @@ impl LayerCostVia {
     }
 }
 
-// impl PartialEq for LayerCostVia {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.layer_via == other.layer_via
-//     }
-// }
-
-// impl PartialEq<Self> for LayerCostVia {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.layer_via == other.layer_via
-//     }
-// }
-
-// impl PartialEq<Self> for LayerCostVia {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.layer_via == other.layer_via
-//     }
-// }
-
-// impl PartialOrd for LayerCostVia {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(&other))
-//     }
-// }
-
-// impl Ord for LayerCostVia {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         self.layer_via.cmp(&other.layer_via)
-//     }
-// }
-
 //
 // StartEndVia
 //
 
+#[derive(Copy, Clone)]
 pub struct StartEndVia {
-    pub(crate) start: Via,
-    pub(crate) end: Via,
+    pub start: Via,
+    pub end: Via,
 }
 
 impl StartEndVia {
@@ -234,8 +174,8 @@ impl StartEndVia {
 
 #[derive(Eq, PartialEq, PartialOrd, Clone)]
 pub struct LayerStartEndVia {
-    pub(crate) start: LayerVia,
-    pub(crate) end: LayerVia,
+    pub start: LayerVia,
+    pub end: LayerVia,
 }
 
 impl LayerStartEndVia {
@@ -255,9 +195,10 @@ impl LayerStartEndVia {
 // WireLayerVia
 //
 
+#[derive(Clone)]
 pub struct WireLayerVia {
-    pub(crate) is_wire_side_blocked: bool,
-    pub(crate) wire_to_via: ValidVia,
+    pub is_wire_side_blocked: bool,
+    pub wire_to_via: ValidVia,
 }
 
 impl WireLayerVia {
@@ -269,7 +210,7 @@ impl WireLayerVia {
     }
 }
 
-pub(crate) type WireLayerViaVec = Vec<WireLayerVia>;
+pub type WireLayerViaVec = Vec<WireLayerVia>;
 
 //
 // CostVia
@@ -277,17 +218,19 @@ pub(crate) type WireLayerViaVec = Vec<WireLayerVia>;
 
 #[derive(Eq, PartialEq, PartialOrd, Clone, Ord)]
 pub struct CostVia {
-    pub(crate) wire_cost: i32,
-    pub(crate) strip_cost: i32,
+    pub wire_cost: usize,
+    pub strip_cost: usize,
 }
 
 impl CostVia {
     pub fn new() -> Self {
         Self {
-            wire_cost: i32::MAX,
-            strip_cost: i32::MAX,
+            wire_cost: usize::MAX,
+            strip_cost: usize::MAX,
         }
     }
 }
 
-pub(crate) type CostViaVec = Vec<CostVia>;
+pub type CostViaVec = Vec<CostVia>;
+
+

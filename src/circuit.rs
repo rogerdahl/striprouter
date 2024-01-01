@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::i32;
+use std::usize;
 
-use crate::via::{Via, StartEndVia};
+use crate::via::{StartEndVia, Via};
 
 // Packages
 
@@ -10,12 +10,12 @@ type PackageToPosMap = HashMap<String, PackageRelPosVec>;
 
 // Components
 
-type DontCarePinIdxSet = HashSet<i32>;
+type DontCarePinIdxSet = HashSet<usize>;
 
 pub struct Component {
-    pub(crate) package_name: String,
+    pub package_name: String,
     pin0_abs_pos: Via,
-    pub(crate) dont_care_pin_idx_set: DontCarePinIdxSet,
+    pub dont_care_pin_idx_set: DontCarePinIdxSet,
 }
 
 impl Component {
@@ -36,12 +36,12 @@ type ComponentNameToComponentMap = HashMap<String, Component>;
 // Connections
 
 pub struct ConnectionPoint {
-    pub(crate) component_name: String,
-    pub(crate) pin_idx: i32,
+    pub component_name: String,
+    pub pin_idx: usize,
 }
 
 impl ConnectionPoint {
-    pub fn new(component_name: String, pin_idx: i32) -> Self {
+    pub fn new(component_name: String, pin_idx: usize) -> Self {
         Self {
             component_name,
             pin_idx,
@@ -68,10 +68,10 @@ type StringVec = Vec<String>;
 type PinViaVec = Vec<Via>;
 
 pub struct Circuit {
-    pub(crate) package_to_pos_map: PackageToPosMap,
-    pub(crate) component_name_to_component_map: ComponentNameToComponentMap,
-    pub(crate) connection_vec: ConnectionVec,
-    pub(crate) parser_error_vec: StringVec,
+    pub package_to_pos_map: PackageToPosMap,
+    pub component_name_to_component_map: ComponentNameToComponentMap,
+    pub connection_vec: ConnectionVec,
+    pub parser_error_vec: StringVec,
 }
 
 impl Circuit {
@@ -91,11 +91,23 @@ impl Circuit {
     pub fn gen_connection_via_vec(&self) -> ConnectionViaVec {
         let mut v = Vec::new();
         for c in &self.connection_vec {
-            let start_component = self.component_name_to_component_map.get(&c.start.component_name).unwrap();
-            let end_component = self.component_name_to_component_map.get(&c.end.component_name).unwrap();
+            let start_component = self
+                .component_name_to_component_map
+                .get(&c.start.component_name)
+                .unwrap();
+            let end_component = self
+                .component_name_to_component_map
+                .get(&c.end.component_name)
+                .unwrap();
 
-            let start_rel_pin = self.package_to_pos_map.get(&start_component.package_name).unwrap()[c.start.pin_idx as usize];
-            let end_rel_pin = self.package_to_pos_map.get(&end_component.package_name).unwrap()[c.end.pin_idx as usize];
+            let start_rel_pin = self
+                .package_to_pos_map
+                .get(&start_component.package_name)
+                .unwrap()[c.start.pin_idx];
+            let end_rel_pin = self
+                .package_to_pos_map
+                .get(&end_component.package_name)
+                .unwrap()[c.end.pin_idx];
 
             let start_abs_pin = start_rel_pin + start_component.pin0_abs_pos;
             let end_abs_pin = end_rel_pin + end_component.pin0_abs_pos;
@@ -106,9 +118,16 @@ impl Circuit {
     }
 
     pub fn calc_component_footprint(&self, component_name: String) -> StartEndVia {
-        let mut v = StartEndVia::new(Via::new(i32::MAX, i32::MAX), Via::new(0, 0));
-        let component = self.component_name_to_component_map.get(&component_name).unwrap();
-        for cc in self.package_to_pos_map.get(&component.package_name).unwrap() {
+        let mut v = StartEndVia::new(Via::new(usize::MAX, usize::MAX), Via::new(0, 0));
+        let component = self
+            .component_name_to_component_map
+            .get(&component_name)
+            .unwrap();
+        for cc in self
+            .package_to_pos_map
+            .get(&component.package_name)
+            .unwrap()
+        {
             let c = cc + component.pin0_abs_pos;
             if c.x < v.start.x {
                 v.start.x = c.x;
@@ -126,14 +145,20 @@ impl Circuit {
         v
     }
 
-    pub fn calc_component_pins(&self, component_name: String) -> PinViaVec {
+    pub fn calc_component_pins(&self, component_name: &String) -> PinViaVec {
         let mut v = PinViaVec::new();
-        let component = self.component_name_to_component_map.get(&component_name).unwrap();
-        for cc in self.package_to_pos_map.get(&component.package_name).unwrap() {
+        let component = self
+            .component_name_to_component_map
+            .get(component_name.as_str())
+            .unwrap();
+        for cc in self
+            .package_to_pos_map
+            .get(&component.package_name)
+            .unwrap()
+        {
             let c = cc + component.pin0_abs_pos;
             v.push(c);
         }
         v
     }
 }
-

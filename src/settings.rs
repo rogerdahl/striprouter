@@ -1,15 +1,15 @@
 use std::sync::Mutex;
 
-const DEFAULT_WIRE_COST: i32 = 10;
-const DEFAULT_STRIP_COST: i32 = 10;
-const DEFAULT_VIA_COST: i32 = 1;
-const DEFAULT_CUT_COST: i32 = 100;
+const DEFAULT_WIRE_COST: usize = 10;
+const DEFAULT_STRIP_COST: usize = 10;
+const DEFAULT_VIA_COST: usize = 1;
+const DEFAULT_CUT_COST: usize = 100;
 
 pub struct Settings {
-    wire_cost: i32,
-    strip_cost: i32,
-    via_cost: i32,
-    cut_cost: i32,
+    wire_cost: usize,
+    strip_cost: usize,
+    via_cost: usize,
+    pub cut_cost: usize,
     pause: bool,
 }
 

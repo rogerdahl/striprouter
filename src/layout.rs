@@ -8,6 +8,7 @@
 use std::sync::Mutex;
 use std::time::Instant;
 use std::collections::HashSet;
+use crate::board::Board;
 use crate::circuit::Circuit;
 use crate::settings::Settings;
 
@@ -25,36 +26,35 @@ pub type StripCutVec = Vec<Via>;
 // Nets
 pub type ViaSet = HashSet<Via>;
 pub type ViaSetVec = Vec<ViaSet>;
-pub type SetIdxVec = Vec<i32>;
+pub type SetIdxVec = Vec<usize>;
 
 pub struct Layout {
-    pub(crate) circuit: Circuit,
-    pub(crate) settings: Settings,
-    pub(crate) grid_w: i32,
-    pub(crate) grid_h: i32,
-    pub(crate) cost: i64,
-    pub(crate) n_completed_routes: i32,
-    pub(crate) n_failed_routes: i32,
-    pub(crate) num_shortcuts: i32,
-    pub(crate) is_ready_for_routing: bool,
-    pub(crate) is_ready_for_eval: bool,
-    pub(crate) has_error: bool,
-    pub(crate) layout_info_vec: StringVec,
-    pub(crate) route_vec: RouteVec,
-    pub(crate) strip_cut_vec: StripCutVec,
-    pub(crate) route_status_vec: RouteStatusVec,
+    pub circuit: Circuit,
+    pub settings: Settings,
+    pub board: Board,
+    pub cost: usize,
+    pub n_completed_routes: usize,
+    pub n_failed_routes: usize,
+    pub num_shortcuts: usize,
+    pub is_ready_for_routing: bool,
+    pub is_ready_for_eval: bool,
+    pub has_error: bool,
+    pub layout_info_vec: StringVec,
+    pub route_vec: RouteVec,
+    pub strip_cut_vec: StripCutVec,
+    pub route_status_vec: RouteStatusVec,
     // Nets
-    pub(crate) via_set_vec: ViaSetVec,
-    pub(crate) set_idx_vec: SetIdxVec,
+    pub via_set_vec: ViaSetVec,
+    pub set_idx_vec: SetIdxVec,
     // Debug
-    pub(crate) diag_start_via: ValidVia,
-    pub(crate) diag_end_via: ValidVia,
-    pub(crate) diag_cost_vec: CostViaVec,
-    pub(crate) diag_route_step_vec: RouteStepVec,
-    pub(crate) diag_trace_vec: WireLayerViaVec,
-    pub(crate) error_string_vec: StringVec,
-    pub(crate) mutex_: Mutex<()>,
-    pub(crate) timestamp_: Instant,
+    pub diag_start_via: ValidVia,
+    pub diag_end_via: ValidVia,
+    pub diag_cost_vec: CostViaVec,
+    pub diag_route_step_vec: RouteStepVec,
+    pub diag_trace_vec: WireLayerViaVec,
+    pub error_string_vec: StringVec,
+    pub mutex_: Mutex<()>,
+    pub timestamp_: Instant,
 }
 
 impl Layout {
@@ -63,8 +63,7 @@ impl Layout {
         Self {
             circuit: Circuit::new(),
             settings: Settings::new(),
-            grid_w: 0,
-            grid_h: 0,
+            board: Board::new(0, 0),
 
             cost: 0,
             n_completed_routes: 0,
@@ -101,16 +100,13 @@ impl Layout {
         // Update timestamp here
     }
 
-    // Add other methods here
-
     // Copy Layout
-    pub fn copy_layout(&mut self, other: &mut Layout) {
-
-    }
+    // pub fn copy_layout(&mut self, other: &mut Layout) {
+    //     ///////////////////////////////////////////////////////////////////////////////////////////
+    // }
 
     pub fn copy(&mut self, other: &Self) {
-        self.grid_w = other.grid_w;
-        self.grid_h = other.grid_h;
+        self.board = other.board.clone();
         self.cost = other.cost;
         self.n_completed_routes = other.n_completed_routes;
         self.n_failed_routes = other.n_failed_routes;
@@ -155,10 +151,6 @@ impl Layout {
             Ok(_) => false,
             Err(_) => true,
         }
-    }
-
-    pub fn idx(&self, v: &Via) -> i32 {
-        v.x + self.grid_w * v.y
     }
 }
 

@@ -7,32 +7,32 @@ use std::sync::{Arc, Mutex};
 // Random
 //
 
-type GeneIdx = i32;
+type GeneIdx = usize;
 
 pub struct RandomIntGenerator {
     random_engine: ThreadRng,
-    uniform_int_distribution: Uniform<i32>,
+    uniform_int_distribution: Uniform<usize>,
 }
 
 impl RandomIntGenerator {
     pub fn new() -> Self {
         Self {
             random_engine: thread_rng(),
-            uniform_int_distribution: Uniform::new_inclusive(0, i32::MAX),
+            uniform_int_distribution: Uniform::new_inclusive(0, usize::MAX),
         }
     }
 
-    pub fn with_range(min: i32, max: i32) -> Self {
+    pub fn with_range(min: usize, max: usize) -> Self {
         let mut rng = Self::new();
         rng.set_range(min, max);
         rng
     }
 
-    pub fn set_range(&mut self, min: i32, max: i32) {
+    pub fn set_range(&mut self, min: usize, max: usize) {
         self.uniform_int_distribution = Uniform::new_inclusive(min, max);
     }
 
-    pub fn get_random_int(&mut self) -> i32 {
+    pub fn get_random_int(&mut self) -> usize {
         self.uniform_int_distribution
             .sample(&mut self.random_engine)
     }
@@ -52,7 +52,7 @@ impl RandomFloatGenerator {
 // Gene
 //
 
-type Gene = i32;
+type Gene = usize;
 type GeneVec = Vec<Gene>;
 
 pub struct GeneDependency {
@@ -75,15 +75,15 @@ impl GeneDependency {
 
 #[derive(Clone)]
 pub struct Organism {
-    n_genes: i32,
+    n_genes: usize,
     random_gene_selector: Arc<Mutex<RandomIntGenerator>>,
-    pub(crate) n_completed_routes: i32,
-    pub(crate) completed_route_cost: i64,
+    pub n_completed_routes: usize,
+    pub completed_route_cost: usize,
     gene_vec: GeneVec,
 }
 
 impl Organism {
-    pub fn new(n_genes: i32, random_gene_selector: Arc<Mutex<RandomIntGenerator>>) -> Self {
+    pub fn new(n_genes: usize, random_gene_selector: Arc<Mutex<RandomIntGenerator>>) -> Self {
         Self {
             n_genes,
             random_gene_selector,
@@ -107,14 +107,14 @@ impl Organism {
 
     pub fn mutate(&mut self) {
         let mut random_gene_selector = self.random_gene_selector.lock().unwrap();
-        let dependent_idx = random_gene_selector.get_random_int() as usize;
+        let dependent_idx = random_gene_selector.get_random_int() ;
         let dependency_idx = random_gene_selector.get_random_int();
         self.gene_vec[dependent_idx] = dependency_idx;
     }
 
     pub fn calc_connection_idx_vec(&self) -> GeneVec {
         let gene_vec = self.topo_sort();
-        assert_eq!(gene_vec.len(), self.n_genes as usize);
+        assert_eq!(gene_vec.len(), self.n_genes );
         gene_vec
     }
 
@@ -134,7 +134,7 @@ impl Organism {
             .gene_vec
             .iter()
             .enumerate()
-            .map(|(i, &gene_idx)| GeneDependency::new(i as i32, gene_idx))
+            .map(|(i, &gene_idx)| GeneDependency::new(i , gene_idx))
             .collect();
 
         gene_list.sort_by(|a, b| a.gene_dependency.cmp(&b.gene_dependency));
@@ -192,21 +192,21 @@ impl OrganismPair {
     }
 }
 
-type OrganismIdx = i32;
+type OrganismIdx = usize;
 type OrganismVec = Vec<Organism>;
 
 pub struct Population {
-    pub(crate) n_organisms_in_population: i32,
-    pub(crate) crossover_rate: f64,
-    pub(crate) mutation_rate: f64,
-    pub(crate) n_genes_per_organism: i32,
-    pub(crate) random_gene_selector: Arc<Mutex<RandomIntGenerator>>,
-    pub(crate) random_organism_selector: Arc<Mutex<RandomIntGenerator>>,
-    pub(crate) organism_vec: OrganismVec,
+    pub n_organisms_in_population: usize,
+    pub crossover_rate: f64,
+    pub mutation_rate: f64,
+    pub n_genes_per_organism: usize,
+    pub random_gene_selector: Arc<Mutex<RandomIntGenerator>>,
+    pub random_organism_selector: Arc<Mutex<RandomIntGenerator>>,
+    pub organism_vec: OrganismVec,
 }
 
 impl Population {
-    pub fn new(n_organisms_in_population: i32, crossover_rate: f64, mutation_rate: f64) -> Self {
+    pub fn new(n_organisms_in_population: usize, crossover_rate: f64, mutation_rate: f64) -> Self {
         assert_eq!(n_organisms_in_population % 2, 0); // Must have even number of organisms
         Self {
             n_organisms_in_population,
@@ -222,7 +222,7 @@ impl Population {
         }
     }
 
-    pub fn reset(&mut self, n_genes_per_organism: i32) {
+    pub fn reset(&mut self, n_genes_per_organism: usize) {
         self.n_genes_per_organism = n_genes_per_organism;
         self.random_gene_selector
             .lock()
@@ -240,7 +240,7 @@ impl Population {
             let mut pair = self.select_pair_tournament(2);
             if RandomFloatGenerator::get_normalized_random() < crossover_rate {
                 // self.crossover(&mut pair);
-                let cross_idx = pair.a.get_random_crossover_point() as usize;
+                let cross_idx = pair.a.get_random_crossover_point() ;
                 for i in cross_idx..pair.a.gene_vec.len() {
                     std::mem::swap(&mut pair.a.gene_vec[i], &mut pair.b.gene_vec[i]);
                 }
@@ -258,7 +258,7 @@ impl Population {
         }
         assert_eq!(
             new_generation_vec.len(),
-            self.n_organisms_in_population as usize
+            self.n_organisms_in_population
         );
         self.organism_vec = new_generation_vec;
     }
@@ -276,20 +276,20 @@ impl Population {
     }
 
     // pub fn crossover(&mut self, pair: &mut OrganismPair) {
-    //     let cross_idx = pair.a.get_random_crossover_point() as usize;
+    //     let cross_idx = pair.a.get_random_crossover_point() ;
     //     for i in cross_idx..pair.a.gene_vec.len() {
     //         std::mem::swap(&mut pair.a.gene_vec[i], &mut pair.b.gene_vec[i]);
     //     }
     // }
 
-    pub fn select_pair_tournament(&mut self, n_candidates: i32) -> OrganismPair {
+    pub fn select_pair_tournament(&mut self, n_candidates: usize) -> OrganismPair {
         let organism_a_idx = self.tournament_select(n_candidates);
         loop {
             let organism_b_idx = self.tournament_select(n_candidates);
             if organism_a_idx != organism_b_idx {
                 return OrganismPair::new(
-                    self.organism_vec[organism_a_idx as usize].clone(),
-                    self.organism_vec[organism_b_idx as usize].clone(),
+                    self.organism_vec[organism_a_idx ].clone(),
+                    self.organism_vec[organism_b_idx ].clone(),
                 );
             }
         }
@@ -317,9 +317,9 @@ impl Population {
     // selection. It takes `n_candidates` as a parameter, which is the tournament size. It then
     // selects `n_candidates` organisms from the population, compares their fitness (in this case,
     // the completed route cost), and returns the index of the organism with the best fitness.
-    pub fn tournament_select(&self, n_candidates: i32) -> OrganismIdx {
-        let mut best_organism_idx = -1;
-        let mut lowest_completed_route_cost = i64::MAX;
+    pub fn tournament_select(&self, n_candidates: usize) -> OrganismIdx {
+        let mut best_organism_idx = usize::MAX;
+        let mut lowest_completed_route_cost = usize::MAX;
         let mut n_highest_completed_routes = 0;
 
         for _ in 0..n_candidates {
@@ -329,7 +329,7 @@ impl Population {
                 .unwrap()
                 .get_random_int();
 
-            let organism = &self.organism_vec[organism_idx as usize];
+            let organism = &self.organism_vec[organism_idx ];
 
             let has_more_completed_routes =
                 organism.n_completed_routes > n_highest_completed_routes;

@@ -6,7 +6,7 @@ lazy_static! {
 }
 
 pub struct Status {
-    n_combinations_checked: i32,
+    n_combinations_checked: usize,
 }
 
 impl Status {
