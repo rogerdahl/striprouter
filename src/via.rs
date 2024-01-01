@@ -21,6 +21,12 @@ fn str(v: &Via) -> String {
     format!("{},{}", v.x, v.y)
 }
 
+pub fn via_from_offset(v: &Via, offset: &OffsetVia) -> Via {
+    Via::new((v.x as isize + offset.x) as usize, (v.y as isize + offset.y) as usize)
+}
+
+pub type OffsetVia = Vector2<isize>;
+
 //
 // ValidVia
 //

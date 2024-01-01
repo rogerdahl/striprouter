@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::usize;
 
-use crate::via::{StartEndVia, Via};
+use crate::via::{OffsetVia, StartEndVia, Via, via_from_offset};
 
 // Packages
 
-type PackageRelPosVec = Vec<Via>;
+type PackageRelPosVec = Vec<OffsetVia>;
 type PackageToPosMap = HashMap<String, PackageRelPosVec>;
 
 // Components
@@ -109,10 +109,10 @@ impl Circuit {
                 .get(&end_component.package_name)
                 .unwrap()[c.end.pin_idx];
 
-            let start_abs_pin = start_rel_pin + start_component.pin0_abs_pos;
-            let end_abs_pin = end_rel_pin + end_component.pin0_abs_pos;
+            // let start_abs_pin = start_rel_pin + OffsetVia::new(start_component.pin0_abs_pos.x as isize, start_component.pin0_abs_pos.y as isize);
+            // let end_abs_pin = end_rel_pin + OffsetVia::new(end_component.pin0_abs_pos.x as isize, end_component.pin0_abs_pos.y as isize);
 
-            v.push(StartEndVia::new(start_abs_pin, end_abs_pin));
+            v.push(StartEndVia::new(via_from_offset(&start_component.pin0_abs_pos, &start_rel_pin), via_from_offset(&end_component.pin0_abs_pos, &end_rel_pin)));
         }
         v
     }
@@ -128,7 +128,7 @@ impl Circuit {
             .get(&component.package_name)
             .unwrap()
         {
-            let c = cc + component.pin0_abs_pos;
+            let c = via_from_offset(&component.pin0_abs_pos, cc);
             if c.x < v.start.x {
                 v.start.x = c.x;
             }
@@ -156,7 +156,7 @@ impl Circuit {
             .get(&component.package_name)
             .unwrap()
         {
-            let c = cc + component.pin0_abs_pos;
+            let c = via_from_offset(&component.pin0_abs_pos, cc);
             v.push(c);
         }
         v
