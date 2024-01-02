@@ -11,8 +11,7 @@ use std::time::{Duration, Instant};
 
 pub struct Router {
     board: Board,
-    connection_idx_vec: Vec<usize>,
-    nets: Nets,
+    // connection_idx_vec: Vec<usize>,
     all_pin_set: HashSet<Via>,
     via_trace_vec: Vec<WireLayerVia>,
     // input_layout: & Layout,
@@ -25,11 +24,10 @@ impl Router {
     pub fn new(board: Board) -> Self {
         Self {
             board,
-            connection_idx_vec: Vec::new(),
-            nets: Nets::new(board),
+            // connection_idx_vec: Vec::new(),
             all_pin_set: HashSet::new(),
             // THIS FILLS WITH 0,0 VIAS WHILE THE C++ VERSION FILLS WITH -1,-1.
-            via_trace_vec: vec![WireLayerVia::new(); (board.size())],
+            via_trace_vec: vec![WireLayerVia::new(); board.size()],
         }
     }
 
@@ -38,13 +36,14 @@ impl Router {
         board: Board,
         layout: &mut Layout,
         nets: &mut Nets,
+        connection_idx_vec: Vec<usize>,
         shortcut_end_via: Via,
     ) -> bool {
         self.block_component_footprints(board, layout);
-        self.join_all_connections(board, layout);
+        self.join_all_connections(board, layout, nets);
         self.register_active_component_pins(layout);
-        let is_aborted = self.route_all(board, layout, nets, shortcut_end_via);
-        let strip_cut_vec = self.find_strip_cuts(board, layout);
+        let is_aborted = self.route_all(board, layout, nets, connection_idx_vec, shortcut_end_via);
+        let strip_cut_vec = self.find_strip_cuts(board, layout, nets);
         layout.cost += (layout.settings.cut_cost * strip_cut_vec.len());
         layout.is_ready_for_eval = true;
         if layout.has_error {
@@ -58,6 +57,7 @@ impl Router {
         board: Board,
         layout: &mut Layout,
         nets: &mut Nets,
+        connection_idx_vec: Vec<usize>,
         shortcut_end_via: Via,
     ) -> bool {
         let mut is_aborted = false;
@@ -66,12 +66,11 @@ impl Router {
         layout
             .route_status_vec
             .resize(connection_via_vec.len(), false);
-        for connection_idx in self.connection_idx_vec.clone() {
+        for connection_idx in connection_idx_vec.clone() {
             let start_end_via = connection_via_vec[connection_idx];
             let route_was_found =
                 self.find_complete_route(board, layout, nets, start_end_via, shortcut_end_via);
             layout.route_status_vec[connection_idx] = route_was_found;
-
             // if self.thread_stop.is_stopped() {
             //     is_aborted = true;
             //     break;
@@ -124,12 +123,12 @@ impl Router {
     ) -> bool {
         let mut ucs = UniformCostSearch::new(board);
         let route_step_vec =
-            ucs.find_lowest_cost_route(board, layout, self, start_end_via, shortcut_end_via);
+            ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via, shortcut_end_via);
         if layout.has_error || route_step_vec.is_empty() {
             return false;
         }
         self.block_route(board, route_step_vec.clone());
-        self.nets.connect_route(board, layout, &route_step_vec);
+        nets.connect_route(board, layout, &route_step_vec);
         let route_section_vec = self.condense_route(route_step_vec);
         self.add_wire_jumps(board, route_section_vec.clone());
         layout.route_vec.push(route_section_vec);
@@ -161,16 +160,16 @@ impl Router {
         route_section_vec
     }
 
-    fn find_strip_cuts(&self, board: Board, layout: &mut Layout) -> Vec<Via> {
+    fn find_strip_cuts(&self, board: Board, layout: &mut Layout, nets: &mut Nets) -> Vec<Via> {
         let mut v = Vec::new();
         for x in 0..self.board.w {
             let mut is_used = false;
             for y in 1..board.h {
                 let prev_via = Via::new(x, y - 1);
                 let cur_via = Via::new(x, y);
-                let is_connected = self.nets.is_connected(board, layout, cur_via, prev_via);
+                let is_connected = nets.is_connected(board, layout, cur_via, prev_via);
                 let is_in_other_net =
-                    self.nets.has_connection(board, layout, cur_via) && !is_connected;
+                    nets.has_connection(board, layout, cur_via) && !is_connected;
                 let is_other_pin = self.is_any_pin(cur_via) && !is_connected;
                 if is_in_other_net || is_other_pin {
                     if is_used {
@@ -187,6 +186,7 @@ impl Router {
         &self,
         board: Board,
         layout: &mut Layout,
+        nets: &mut Nets,
         via: LayerVia,
         start_via: Via,
         target_via: Via,
@@ -199,13 +199,13 @@ impl Router {
                 return false;
             }
         } else {
-            if self.nets.has_connection(board, layout, via.via)
-                && !self.nets.is_connected(board, layout, via.via, start_via)
+            if nets.has_connection(board, layout, via.via)
+                && !nets.is_connected(board, layout, via.via, start_via)
             {
                 return false;
             }
             if self.is_any_pin(via.via) {
-                if !self.nets.is_connected(board, layout, via.via, start_via) {
+                if !nets.is_connected(board, layout, via.via, start_via) {
                     return false;
                 }
             }
@@ -252,9 +252,9 @@ impl Router {
         self.via_trace_vec[board.idx(via)].is_wire_side_blocked
     }
 
-    fn join_all_connections(&mut self, board: Board, layout: &mut Layout) {
+    fn join_all_connections(&mut self, board: Board, layout: &mut Layout, nets: &mut Nets) {
         for c in layout.circuit.gen_connection_via_vec() {
-            self.nets.connect(board, layout, c.start, c.end);
+            nets.connect(board, layout, c.start, c.end);
         }
     }
 

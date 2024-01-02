@@ -1,21 +1,21 @@
 #![allow(unused)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod board;
 pub mod circuit;
 mod circuit_parser;
+mod ga_core;
+mod ga_interface;
 mod gui;
 mod layout;
+mod nets;
 mod render;
-mod via;
-mod ga_interface;
-mod ga_core;
+mod router;
 mod settings;
 mod status;
-mod ucs;
-mod router;
 mod thread_stop;
-mod nets;
-mod board;
+mod ucs;
+mod via;
 
 // // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
 // // <iostream>, <mutex>, <string>, <thread>, <vector>
@@ -29,22 +29,22 @@ mod board;
 
 static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
 
-use via::{IntPos, LayerStartEndVia, LayerVia, Pos, ValidVia, Via};
+use via::{LayerStartEndVia, LayerVia, Pos, ValidVia, Via};
 
+use crate::ga_interface::GeneticAlgorithm;
 use crate::layout::Layout;
 use crate::render::Render;
 use crate::via::StartEndVia;
 use eframe::egui;
 use eframe::emath::Align2;
 use eframe::epaint::Shape;
-use egui::{Pos2, TextStyle};
 use egui::introspection::font_id_ui;
-use crate::ga_interface::GeneticAlgorithm;
+use egui::{Pos2, TextStyle};
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 1000.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([2000.0, 2000.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -63,8 +63,8 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct MyApp {
-    name: String,
-    age: u32,
+    // name: String,
+    // age: u32,
     layout: Layout,
     zoom: f32,
 }
@@ -83,12 +83,48 @@ impl Default for MyApp {
     fn default() -> Self {
         let mut layout = Layout::new();
         circuit_parser::CircuitFileParser::new(&mut layout).parse(CIRCUIT_FILE_PATH);
-        println!("layout w={:?} h={:?}", layout.board.w, layout.board.h);
+
+        let mut router = router::Router::new(layout.board);
+        let mut nets = nets::Nets::new(layout.board);
+
+        // let mut connection_idx_vec: Vec<usize> = Vec::new();
+        // let mut ordering_idx: i32;
+        // let _lock = genetic_algorithm.scope_lock();
+        // ordering_idx = genetic_algorithm.reserve_ordering();
+        // if ordering_idx != -1 {
+        //     connection_idx_vec = genetic_algorithm.get_ordering(ordering_idx);
+        // }
+
+        let mut g = GeneticAlgorithm::new(1000, 0.7, 0.01);
+        g.reset(layout.circuit.connection_vec.len());
+
+        // for _ in 0..100000 {
+            let ordering_idx = g.reserve_ordering();
+            let ordering = g.get_ordering(ordering_idx);
+            println!("ordering={:?}", ordering);
+            let mut cost = 0;
+            for i in 0..ordering.len() {
+                cost += ordering[i] * (i + 1);
+            }
+            g.release_ordering(ordering_idx, 10, cost);
+        // }
+
+        // let settings = settings::Settings::new();
+
+        router.route(
+            layout.board,
+            &mut layout,
+            &mut nets,
+            ordering,
+            Via::new(usize::MAX, usize::MAX),
+        );
+
+        //     println!("layout w={:?} h={:?}", layout.board.w, layout.board.h);
         Self {
-            name: "Arthur".to_owned(),
-            age: 42,
+            //         // name: "Arthur".to_owned(),
+            //         // age: 42,
             layout,
-            zoom: 1.0,
+            zoom: 25.0,
         }
     }
 }
@@ -141,11 +177,11 @@ impl eframe::App for MyApp {
             ui.heading("Status");
             ui.label("Controls");
 
-            ui.horizontal(|ui| {
-                let name_label = ui.label("Your name: ");
-                ui.text_edit_singleline(&mut self.name)
-                    .labelled_by(name_label.id);
-            });
+            // ui.horizontal(|ui| {
+            //     let name_label = ui.label("Your name: ");
+            //     ui.text_edit_singleline(&mut self.name)
+            //         .labelled_by(name_label.id);
+            // });
             ui.add(egui::Slider::new(&mut self.zoom, 1.0..=100.0).text("Zoom"));
             // if ui.button("Click each year").clicked() {
             //     self.age += 1;
@@ -168,13 +204,11 @@ impl eframe::App for MyApp {
                     println!("ordering={:?}", ordering);
                     let mut cost = 0;
                     for i in 0..ordering.len() {
-                        cost += ordering[i] * (i+1) ;
+                        cost += ordering[i] * (i + 1);
                     }
-                    g.release_ordering(ordering_idx, 10, cost );
+                    g.release_ordering(ordering_idx, 10, cost);
                 }
             }
-
-
         });
 
         // Stripboard
@@ -209,7 +243,6 @@ impl eframe::App for MyApp {
             //     egui::Color32::from_rgb(255, 255, 0),
             // );
 
-
             // Create a sub ui:
             // ui.horizontal(|ui| {
             //     // ui.fonts(|fonts| {
@@ -243,7 +276,6 @@ impl eframe::App for MyApp {
             //         ui.painter().add(s);
             //     });
             // });
-
 
             // ui.fonts(|f| {
             //     let s = Shape::text(

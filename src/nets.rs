@@ -11,7 +11,7 @@ pub struct Nets {
 impl Nets {
     pub fn new(board: Board) -> Self {
         Self {
-            set_idx_vec: vec![usize::MAX; (board.size())],
+            set_idx_vec: vec![usize::MAX; board.size()],
             via_set_vec: Vec::new(),
         }
     }
@@ -22,8 +22,8 @@ impl Nets {
 
         // TODO: These asserts get triggered by a fast component drag out of the board on the top
         // side.
-        assert!(set_idx_a < self.via_set_vec.len());
-        assert!(set_idx_b < self.via_set_vec.len());
+        // assert!(set_idx_a < self.via_set_vec.len());
+        // assert!(set_idx_b < self.via_set_vec.len());
 
         if set_idx_a == usize::MAX && set_idx_b == usize::MAX {
             let via_set_idx = self.create_via_set();

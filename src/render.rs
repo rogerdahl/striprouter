@@ -19,7 +19,7 @@ const CUT_WIDTH: f32 = 0.83;
 const VIA_RADIUS: f32 = 0.2;
 const WIRE_WIDTH: f32 = 0.125;
 const RATS_NEST_WIRE_WIDTH: f32 = 0.2;
-const CONNECTION_WIDTH: f32 = 0.1;
+const CONNECTION_WIDTH: f32 = 0.2;
 const LABEL_SIZE_POINT: f32 = 0.75;
 const DIAG_SIZE_POINT: f32 = 0.25;
 
@@ -69,7 +69,7 @@ impl Render {
         if show_rats_nest {
             self.draw_rats_nest(ui, layout, show_only_failed);
         }
-        self.draw_border(ui, layout);
+        // self.draw_border(ui, layout);
         if layout.has_error {
             self.draw_diag(ui, layout);
         }
