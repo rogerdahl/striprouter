@@ -171,14 +171,14 @@ impl Render {
                     } else {
                         color = self.strip_regular_color;
                     }
-                    self.draw_filled_rectangle(ui, start1, end1, color);
+                    self.draw_filled_rectangle(ui, start1, end1, &color);
                     // Vias
                     for y in y1..=y2 {
                         self.draw_filled_circle(
                             ui,
                             Pos::new(start_end_via.start.x as f32, y as f32),
                             VIA_RADIUS,
-                            self.strip_via_color,
+                            &self.strip_via_color,
                         );
                     }
                 }
@@ -214,10 +214,10 @@ impl Render {
                         section.start.via.cast::<f32>(),
                         section.end.via.cast::<f32>(),
                         CONNECTION_WIDTH,
-                        color,
+                        &color,
                     );
-                    self.draw_filled_circle(ui, section.start.via.cast::<f32>(), VIA_RADIUS, color);
-                    self.draw_filled_circle(ui, section.end.via.cast::<f32>(), VIA_RADIUS, color);
+                    self.draw_filled_circle(ui, section.start.via.cast::<f32>(), VIA_RADIUS, &color);
+                    self.draw_filled_circle(ui, section.end.via.cast::<f32>(), VIA_RADIUS, &color);
                 }
             }
         }
@@ -233,7 +233,7 @@ impl Render {
                 ui,
                 start - Pos::new(0.0, 0.5),
                 end - Pos::new(0.0, 0.5),
-                self.strip_cut_color,
+                &self.strip_cut_color,
             );
         }
     }
@@ -246,7 +246,7 @@ impl Render {
                 .calc_component_footprint(component_name.to_owned());
             let start = footprint.start.cast::<f32>() - Pos::new(0.5, 0.5);
             let end = footprint.end.cast::<f32>() + Pos::new(0.5, 0.5);
-            self.draw_filled_rectangle(ui, start, end, self.component_color);
+            self.draw_filled_rectangle(ui, start, end, &self.component_color);
             // Pins
             let mut is_pin0 = true;
             let mut pin_idx = 0;
@@ -261,9 +261,9 @@ impl Render {
                     is_pin0 = false;
                     let start = pin_via.cast::<f32>() - Pos::new(VIA_RADIUS, VIA_RADIUS);
                     let end = pin_via.cast::<f32>() + Pos::new(VIA_RADIUS, VIA_RADIUS);
-                    self.draw_filled_rectangle(ui, start, end, color);
+                    self.draw_filled_rectangle(ui, start, end, &color);
                 } else {
-                    self.draw_filled_circle(ui, pin_via.cast::<f32>(), VIA_RADIUS, color);
+                    self.draw_filled_circle(ui, pin_via.cast::<f32>(), VIA_RADIUS, &color);
                 }
                 pin_idx += 1;
             }
@@ -277,7 +277,7 @@ impl Render {
                 ui,
                 txt_center_b,
                 component_name,
-                self.component_name_color,
+                &self.component_name_color,
                 true,
             );
         }
@@ -299,7 +299,7 @@ impl Render {
                             *start,
                             *end,
                             RATS_NEST_WIRE_WIDTH,
-                            self.rats_nest_success_color,
+                            &self.rats_nest_success_color,
                         );
                     }
                 } else {
@@ -308,7 +308,7 @@ impl Render {
                         *start,
                         *end,
                         RATS_NEST_WIRE_WIDTH,
-                        self.rats_nest_failed_color,
+                        &self.rats_nest_failed_color,
                     );
                 }
             } else {
@@ -319,7 +319,7 @@ impl Render {
                         *start,
                         *end,
                         RATS_NEST_WIRE_WIDTH,
-                        self.rats_nest_unrouted_color,
+                        &self.rats_nest_unrouted_color,
                     );
                 }
             }
@@ -336,28 +336,28 @@ impl Render {
             start,
             Pos::new(end.x, start.y),
             radius,
-            self.border_color,
+            &self.border_color,
         );
         self.draw_thick_line(
             ui,
             start,
             Pos::new(start.x, end.y),
             radius,
-            self.border_color,
+            &self.border_color,
         );
-        self.draw_thick_line(ui, Pos::new(end.x, start.y), end, radius, self.border_color);
-        self.draw_thick_line(ui, Pos::new(start.x, end.y), end, radius, self.border_color);
+        self.draw_thick_line(ui, Pos::new(end.x, start.y), end, radius, &self.border_color);
+        self.draw_thick_line(ui, Pos::new(start.x, end.y), end, radius, &self.border_color);
     }
 
     pub fn draw_diag(&self, ui: &mut Ui, layout: &Layout) {
         // Draw diag route if specified
         for v in &layout.diag_route_step_vec {
-            let rgba = if v.is_wire_layer {
+            let color = if v.is_wire_layer {
                 self.diag_wire_layer_color
             } else {
                 self.diag_strip_layer_color
             };
-            self.draw_filled_circle(ui, v.via.cast::<f32>(), 1.0, rgba);
+            self.draw_filled_circle(ui, v.via.cast::<f32>(), 1.0, &color);
         }
         // Draw dots where costs have been set.
         for y in 0..layout.board.h {
@@ -369,7 +369,7 @@ impl Render {
                         ui,
                         Pos::new(x as f32 - 0.2, y as f32),
                         0.75,
-                        self.diag_wire_cost_color,
+                        &self.diag_wire_cost_color,
                     );
                 }
                 if v.strip_cost != usize::MAX {
@@ -377,7 +377,7 @@ impl Render {
                         ui,
                         Pos::new(x as f32 + 0.2, y as f32),
                         0.75,
-                        self.diag_strip_cost_color,
+                        &self.diag_strip_cost_color,
                     );
                 }
             }
@@ -388,7 +388,7 @@ impl Render {
                 ui,
                 layout.diag_start_via.via.cast::<f32>(),
                 1.5,
-                self.diag_start_pos_color,
+                &self.diag_start_pos_color,
             );
             self.print_notation(
                 ui,
@@ -402,7 +402,7 @@ impl Render {
                 ui,
                 layout.diag_end_via.via.cast::<f32>(),
                 1.5,
-                self.diag_end_pos_color,
+                &self.diag_end_pos_color,
             );
             self.print_notation(
                 ui,
@@ -560,41 +560,41 @@ impl Render {
 
     pub fn print_notation(&self, ui: &mut Ui, board_pos: Pos, n_line: usize, msg: &String) {
         let scr_pos = gui::board_to_scr_pos(&board_pos, self.zoom, &Pos::new(0.0, 0.0));
-        self.draw_text(ui, board_pos, msg, self.notation_color, false);
+        self.draw_text(ui, board_pos, msg, &self.notation_color, false);
     }
 
-    pub fn draw_filled_rectangle(&self, ui: &mut Ui, start: Pos, end: Pos, color: Color32) {
+    pub fn draw_filled_rectangle(&self, ui: &mut Ui, start: Pos, end: Pos, color: &Color32) {
         let top_left = self.to_pos(ui.min_rect().left_top());
         let start = gui::board_to_scr_pos(&start, self.zoom, &top_left);
         let end = gui::board_to_scr_pos(&end, self.zoom, &top_left);
         let rect = Shape::rect_filled(
             Rect::from_min_max(self.to_pos2(start), self.to_pos2(end)),
             0.0,
-            color,
+            *color,
         );
         ui.painter().add(rect);
     }
 
-    pub fn draw_filled_circle(&self, ui: &mut Ui, center: Pos, radius: f32, color: Color32) {
+    pub fn draw_filled_circle(&self, ui: &mut Ui, center: Pos, radius: f32, color: &Color32) {
         let top_left = self.to_pos(ui.min_rect().left_top());
         let center = gui::board_to_scr_pos(&center, self.zoom, &top_left);
-        let circle = Shape::circle_filled(self.to_pos2(center), radius * self.zoom, color);
+        let circle = Shape::circle_filled(self.to_pos2(center), radius * self.zoom, *color);
         ui.painter().add(circle);
     }
 
-    pub fn draw_thick_line(&self, ui: &mut Ui, start: Pos, end: Pos, radius: f32, color: Color32) {
+    pub fn draw_thick_line(&self, ui: &mut Ui, start: Pos, end: Pos, radius: f32, color: &Color32) {
         let top_left = self.to_pos(ui.min_rect().left_top());
         let start = gui::board_to_scr_pos(&start, self.zoom, &top_left);
         let end = gui::board_to_scr_pos(&end, self.zoom, &top_left);
         // println!("draw_thick_line: {:?} - {:?}", start, end);
         let line = Shape::line_segment(
             [self.to_pos2(start), self.to_pos2(end)],
-            (radius * self.zoom, color),
+            (radius * self.zoom, *color),
         );
         ui.painter().add(line);
     }
 
-    pub fn draw_text(&self, ui: &mut Ui, pos: Pos, text: &str, color: Color32, center: bool) {
+    pub fn draw_text(&self, ui: &mut Ui, pos: Pos, text: &str, color: &Color32, center: bool) {
         let top_left = self.to_pos(ui.min_rect().left_top());
         let pos = gui::board_to_scr_pos(&pos, self.zoom, &top_left);
         ui.painter().text(
