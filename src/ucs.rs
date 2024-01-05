@@ -44,7 +44,7 @@ impl UniformCostSearch {
         let shortcut_end_via = Via::new(end.x, end.y);
         let found_route =
             self.find_costs(board, layout, nets, router, start_end_via, shortcut_end_via);
-        self.dump_costs(board);
+        // self.dump_costs(board);
         return if found_route {
             self.backtrace_lowest_cost_route(
                 board,
@@ -180,7 +180,7 @@ impl UniformCostSearch {
         router: &mut Router,
         start_end_via: StartEndVia,
     ) -> RouteStepVec {
-        println!("start_end_via: {:?} {:?}", via_to_str(&start_end_via.start), via_to_str(&start_end_via.end));
+        // println!("start_end_via: {:?} {:?}", via_to_str(&start_end_via.start), via_to_str(&start_end_via.end));
 
         let mut route_cost = 0;
         let start = LayerVia::from_via(start_end_via.start, false);
@@ -205,7 +205,7 @@ impl UniformCostSearch {
 
             let mut n = c.clone();
 
-            println!("c: {:?} -> n: {:?}", c, n);;
+            // println!("c: {:?}", c);;
 
             if c.is_wire_layer {
                 if c.via.x > 0 {
@@ -290,10 +290,10 @@ impl UniformCostSearch {
     fn get_cost(&self, board: Board, layer_via: LayerVia) -> usize {
         let i = board.idx(layer_via.via);
         if layer_via.is_wire_layer {
-            println!("wire_cost: {:?} {:03x}", layer_via, self.via_cost_vec[i].wire_cost);
+            // println!("wire_cost: {:?} {:03x}", layer_via, self.via_cost_vec[i].wire_cost);
             self.via_cost_vec[i].wire_cost
         } else {
-            println!("strip_cost: {:?} {:03x}", layer_via, self.via_cost_vec[i].strip_cost);
+            // println!("strip_cost: {:?} {:03x}", layer_via, self.via_cost_vec[i].strip_cost);
             self.via_cost_vec[i].strip_cost
         }
     }

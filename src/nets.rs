@@ -4,8 +4,8 @@ use crate::via::Via;
 use std::collections::HashSet;
 
 pub struct Nets {
-    set_idx_vec: Vec<usize>,
-    via_set_vec: Vec<HashSet<Via>>,
+    pub set_idx_vec: Vec<usize>,
+    pub via_set_vec: Vec<HashSet<Via>>,
 }
 
 impl Nets {

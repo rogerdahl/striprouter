@@ -9,11 +9,12 @@ use std::hash::{Hash, Hasher};
 // Hold floating point screen and board positions
 pub type Pos = Vector2<f32>;
 
-// Hold integer positions
-// pub type IntPos = Vector2<usize>;
+pub fn pos_to_via(pos: &Pos) -> Via {
+    Via::new(pos.x.round() as usize, pos.y.round() as usize)
+}
 
 //
-// Via (a hole in the stripboard)
+// Via (coordinate of a through hole on the stripboard)
 //
 
 pub type Via = Vector2<usize>;

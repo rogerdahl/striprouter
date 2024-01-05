@@ -119,6 +119,9 @@ impl Default for MyApp {
             Via::new(usize::MAX, usize::MAX),
         );
 
+        layout.via_set_vec = nets.via_set_vec;
+        layout.set_idx_vec = nets.set_idx_vec;
+
         //     println!("layout w={:?} h={:?}", layout.board.w, layout.board.h);
         Self {
             //         // name: "Arthur".to_owned(),
@@ -228,20 +231,13 @@ impl eframe::App for MyApp {
             // // Shape::text(Pos::new(10.0, 10.0), x, (), Default::default(), Default::default(), Default::default()).fill(Color32::RED);
             // ui.painter().add(sx);
 
+            let pos = ui.input(|input| input.pointer.hover_pos());
+            ui.label(format!("Mouse position: {:?}", pos));
+
+            // let pos = ui.input().pointer.screen_pos();
+            // ui.label(format!("Mouse position: {:?}", pos));
+
             render.draw(ctx, ui, &self.layout, true, false);
-
-            // for i in 1..self.board.w - 2 {
-            //     let x = StartEndVia::new(Via::new(i, 1), Via::new(i, self.board.h - 2));
-            //     render.draw_stripboard_section(ui, &x);
-            // }
-
-            // render.draw_text(
-            //     ctx,
-            //     ui,
-            //     Pos::new(10.0, 10.0),
-            //     "Hello World!",
-            //     egui::Color32::from_rgb(255, 255, 0),
-            // );
 
             // Create a sub ui:
             // ui.horizontal(|ui| {

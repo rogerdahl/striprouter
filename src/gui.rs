@@ -1,5 +1,5 @@
 use crate::circuit::Circuit;
-use crate::via::Pos;
+use crate::via::{Pos, Via};
 use std::collections::HashMap;
 
 pub fn board_to_scr_pos(board_pos: &Pos, zoom: f32, board_screen_offset: &Pos) -> Pos {
@@ -9,6 +9,10 @@ pub fn board_to_scr_pos(board_pos: &Pos, zoom: f32, board_screen_offset: &Pos) -
 pub fn screen_to_board_pos(scr_pos: &Pos, zoom: f32, board_screen_offset: &Pos) -> Pos {
     (scr_pos - board_screen_offset) / zoom
 }
+
+// pub fn screen_pos_to_board_via(scr_pos: &Pos, zoom: f32, board_screen_offset: &Pos) -> Via {
+//     screen_to_board_pos(scr_pos, zoom, board_screen_offset).cast::<usize>()
+// }
 
 pub fn get_mouse_scr_pos(int_mouse_pos: &Pos) -> Pos {
     int_mouse_pos.cast::<f32>()
@@ -33,10 +37,10 @@ pub fn get_component_at_board_pos(circuit: &mut Circuit, board_pos: &Pos) -> Opt
     None
 }
 
-pub fn set_component_position(circuit: &mut Circuit, mouse_board_via: &Pos, component_name: &str) {
+pub fn set_component_position(circuit: &mut Circuit, mouse_via: &Pos, component_name: &str) {
     // circuit
     //     .component_name_to_component_map
     //     .get_mut(component_name)
     //     .unwrap()
-    //     .pin0_abs_pos = *mouse_board_via;
+    //     .pin0_abs_pos = *mouse_via;
 }
