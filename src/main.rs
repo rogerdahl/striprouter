@@ -6,11 +6,11 @@ pub mod circuit;
 mod circuit_parser;
 mod ga_core;
 mod ga_interface;
-mod gui;
 mod layout;
 mod nets;
 mod render;
 mod router;
+mod router_thread;
 mod settings;
 mod status;
 mod thread_stop;
@@ -29,11 +29,14 @@ mod via;
 
 static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
 
+use std::sync::{Arc, Mutex};
 use via::{LayerStartEndVia, LayerVia, Pos, ValidVia, Via};
 
 use crate::ga_interface::GeneticAlgorithm;
 use crate::layout::Layout;
 use crate::render::Render;
+use crate::router_thread::RouterThread;
+use crate::thread_stop::ThreadStop;
 use crate::via::StartEndVia;
 use eframe::egui;
 use eframe::emath::Align2;
@@ -67,6 +70,8 @@ struct MyApp {
     // age: u32,
     layout: Layout,
     zoom: f32,
+    // thread_stop_router: ThreadStop,
+    // router_thread: router_thread::RouterThread,
 }
 
 // impl MyApp {
@@ -87,47 +92,25 @@ impl Default for MyApp {
         let mut router = router::Router::new(layout.board);
         let mut nets = nets::Nets::new(layout.board);
 
-        // let mut connection_idx_vec: Vec<usize> = Vec::new();
-        // let mut ordering_idx: i32;
-        // let _lock = genetic_algorithm.scope_lock();
-        // ordering_idx = genetic_algorithm.reserve_ordering();
-        // if ordering_idx != -1 {
-        //     connection_idx_vec = genetic_algorithm.get_ordering(ordering_idx);
-        // }
-
-        let mut g = GeneticAlgorithm::new(1000, 0.7, 0.01);
-        g.reset(layout.circuit.connection_vec.len());
-
-        // for _ in 0..100000 {
-            let ordering_idx = g.reserve_ordering();
-            let ordering = g.get_ordering(ordering_idx);
-            println!("ordering={:?}", ordering);
-            let mut cost = 0;
-            for i in 0..ordering.len() {
-                cost += ordering[i] * (i + 1);
-            }
-            g.release_ordering(ordering_idx, 10, cost);
-        // }
-
         // let settings = settings::Settings::new();
 
-        router.route(
-            layout.board,
-            &mut layout,
-            &mut nets,
-            ordering,
-            Via::new(usize::MAX, usize::MAX),
-        );
+        // router.route(
+        //     layout.board,
+        //     &mut layout,
+        //     &mut nets,
+        //     Via::new(usize::MAX, usize::MAX),
+        // );
 
         layout.via_set_vec = nets.via_set_vec;
         layout.set_idx_vec = nets.set_idx_vec;
 
-        //     println!("layout w={:?} h={:?}", layout.board.w, layout.board.h);
         Self {
             //         // name: "Arthur".to_owned(),
             //         // age: 42,
             layout,
             zoom: 25.0,
+            // thread_stop_router,
+            // router_thread: router_thread::RouterThread::new(ThreadStop::new()),
         }
     }
 }
@@ -186,32 +169,11 @@ impl eframe::App for MyApp {
             //         .labelled_by(name_label.id);
             // });
             ui.add(egui::Slider::new(&mut self.zoom, 1.0..=100.0).text("Zoom"));
-            // if ui.button("Click each year").clicked() {
-            //     self.age += 1;
-            // }
             // ui.label(format!("Hello '{}', age {}", self.name, self.age));
 
             ui.heading("Router");
             ui.label("Controls");
 
-            if ui.button("Test GA").clicked() {
-                // Test the GA by generating a sequence of numbers in random order
-                // and telling the GA that costs are higher the more out of order
-                // the ordering is. The GA should learn to generate orderings that
-                // are in order.
-                let mut g = GeneticAlgorithm::new(1000, 0.7, 0.01);
-                g.reset(10);
-                for _ in 0..100000 {
-                    let ordering_idx = g.reserve_ordering();
-                    let ordering = g.get_ordering(ordering_idx);
-                    println!("ordering={:?}", ordering);
-                    let mut cost = 0;
-                    for i in 0..ordering.len() {
-                        cost += ordering[i] * (i + 1);
-                    }
-                    g.release_ordering(ordering_idx, 10, cost);
-                }
-            }
         });
 
         // Stripboard
@@ -223,6 +185,7 @@ impl eframe::App for MyApp {
             // ui.label(RichText::new("Large text").font(FontId::proportional(40.0)));
             // ui.label(RichText::new("Red text").color(Color32::RED));ui.label("Stripboard");
 
+            // let top_left = self.to_pos(ui.min_rect().left_top());
             let mut render = Render::new(self.zoom);
             render.start_render(ctx);
 
@@ -231,8 +194,8 @@ impl eframe::App for MyApp {
             // // Shape::text(Pos::new(10.0, 10.0), x, (), Default::default(), Default::default(), Default::default()).fill(Color32::RED);
             // ui.painter().add(sx);
 
-            let pos = ui.input(|input| input.pointer.hover_pos());
-            ui.label(format!("Mouse position: {:?}", pos));
+            // let pos = ui.input(|input| input.pointer.hover_pos());
+            // ui.label(format!("Mouse position: {:?}", pos));
 
             // let pos = ui.input().pointer.screen_pos();
             // ui.label(format!("Mouse position: {:?}", pos));

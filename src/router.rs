@@ -46,9 +46,9 @@ impl Router {
         let strip_cut_vec = self.find_strip_cuts(board, layout, nets);
         layout.cost += (layout.settings.cut_cost * strip_cut_vec.len());
         layout.is_ready_for_eval = true;
-        if layout.has_error {
-            layout.diag_trace_vec = self.via_trace_vec.clone();
-        }
+        // if layout.has_error {
+        //     layout.diag_trace_vec = self.via_trace_vec.clone();
+        // }
         is_aborted
     }
 
@@ -124,9 +124,12 @@ impl Router {
         let mut ucs = UniformCostSearch::new(board);
         let route_step_vec =
             ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via, shortcut_end_via);
-        if layout.has_error || route_step_vec.is_empty() {
+        if route_step_vec.is_empty() {
             return false;
         }
+        // if layout.circuit.has_parser_error() || route_step_vec.is_empty() {
+        //     return false;
+        // }
         self.block_route(board, route_step_vec.clone());
         nets.connect_route(board, layout, &route_step_vec);
         let route_section_vec = self.condense_route(route_step_vec);

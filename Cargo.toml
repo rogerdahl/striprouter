@@ -36,4 +36,6 @@ serde = { version = "1.0.193", features = [] }
 regex = "1.10.2"
 lazy_static = { version = "1.4.0", features = [] }
 rand = "0.8.5"
+num_cpus = { version = "1.16.0", features = [] }
+rand_chacha = "0.3.1"
 

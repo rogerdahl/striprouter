@@ -23,10 +23,17 @@ pub fn via_to_str(v: &Via) -> String {
     format!("Via({:02x},{:02x})", v.x, v.y)
 }
 
-pub fn via_from_offset(v: &Via, offset: &OffsetVia) -> Via {
+pub fn via_add_offset(v: &Via, offset: &OffsetVia) -> Via {
     Via::new(
         (v.x as isize + offset.x) as usize,
         (v.y as isize + offset.y) as usize,
+    )
+}
+
+pub fn via_from_offset(v: &OffsetVia) -> Via {
+    Via::new(
+        v.x as usize,
+        v.y as usize,
     )
 }
 

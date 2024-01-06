@@ -1,25 +1,25 @@
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct ThreadStop {
     mutex: Mutex<()>,
-    lock: Option<MutexGuard<'static, ()>>,
+    stopped: Arc<AtomicBool>,
 }
 
 impl ThreadStop {
     pub fn new() -> Self {
         Self {
             mutex: Mutex::new(()),
-            lock: None,
+            stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    pub fn stop(&mut self) {
-        // assert!(self.lock.is_none());
-        // self.lock = Some(self.mutex.lock().unwrap());
+    pub fn stop(&self) {
+        let _guard = self.mutex.lock().unwrap();
+        self.stopped.store(true, Ordering::SeqCst);
     }
 
     pub fn is_stopped(&self) -> bool {
-        self.lock.is_some()
+        self.stopped.load(Ordering::SeqCst)
     }
 }
-

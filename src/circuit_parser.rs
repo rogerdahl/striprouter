@@ -9,7 +9,7 @@ use regex::Regex;
 
 use crate::circuit::{Component, Connection, ConnectionPoint};
 use crate::layout::Layout;
-use crate::via::{OffsetVia, Via};
+use crate::via::{via_add_offset, via_from_offset, OffsetVia, Via};
 
 pub struct CircuitFileParser<'a> {
     layout: &'a mut Layout,
@@ -47,203 +47,279 @@ impl<'a> CircuitFileParser<'a> {
         let mut line_idx = 0;
         for line in reader.lines() {
             line_idx += 1;
-            let mut line_str = line.unwrap();
-            line_str = line_str.split_whitespace().collect::<Vec<&str>>().join(" ");
-            line_str = line_str.split(", ").collect::<Vec<&str>>().join(",");
-            line_str = line_str.trim().to_string();
-            match self.parse_line(line_str.clone()) {
+            let mut line = line.unwrap();
+            line = line.split_whitespace().collect::<Vec<&str>>().join(" ");
+            line = line.split(", ").collect::<Vec<&str>>().join(",");
+            line = line.trim().to_string();
+            match self.parse_line(line.clone()) {
                 Ok(_) => (),
-                Err(error_str) => {
-                    self.layout.circuit.parser_error_vec.push(
-                        format!("Error on line {}: {}: {}", line_idx, line_str, error_str)
-                    );
+                Err(error) => {
+                    self.layout
+                        .circuit
+                        .parser_error_vec
+                        .push(format!("Error on line {}: {}: {}", line_idx, line, error));
                 }
             }
         }
-        self.layout.is_ready_for_routing = !self.layout.circuit.has_parser_error();
     }
 
-
-    fn parse_line(&mut self, mut line_str: String) -> Result<(), String> {
+    fn parse_line(&mut self, mut line: String) -> Result<(), String> {
         // Substitute aliases
         for alias in &self.aliases {
             let re = Regex::new(&regex::escape(&alias.0)).unwrap();
-            let tmp = re.replace_all(&line_str, &alias.1).to_string();
-            if line_str != tmp {
-                line_str = tmp;
+            let tmp = re.replace_all(&line, &alias.1).to_string();
+            if line != tmp {
+                line = tmp;
             }
         }
 
+        // We pass the line to line parsers in turn, until one of them succeeds.
+        // A line parser returns:
+        // - Ok(true): The line was recognized and successfully parsed. The line is
+        // considered to be consumed, and we move on to the next line.
+        // - Ok(false): The line was not recognized by the parser. The line is still
+        // unparsed, and we try parsing it again by sending it to the next parser.
+        // - Err(error): The line was recognized, but parsing failed. We record the
+        // error and move on to the next line. At this point, parsing of the full
+        // circuit file has failed, but we still try to parse the rest of the file to
+        // collect as many errors as possible.
+
         // Connections are most common, so they are parsed first to improve
         // performance.
-        return if self.parse_connection(&line_str) {
+        return if self.parse_connection(&line)? {
             Ok(())
-        } else if self.parse_comment_or_empty(&line_str) {
+        } else if self.parse_comment_or_empty(&line)? {
             Ok(())
-        } else if self.parse_board(&line_str) {
+        } else if self.parse_board(&line)? {
             Ok(())
-        } else if self.parse_offset(&line_str) {
+        } else if self.parse_offset(&line)? {
             Ok(())
-        } else if self.parse_package(&line_str) {
+        } else if self.parse_package(&line)? {
             Ok(())
-        } else if self.parse_component(&line_str) {
+        } else if self.parse_component(&line)? {
             Ok(())
-        } else if self.parse_dont_care(&line_str) {
+        } else if self.parse_dont_care(&line)? {
             Ok(())
-        } else if self.parse_alias(&line_str) {
+        } else if self.parse_alias(&line)? {
             Ok(())
         } else {
             Err("Invalid line".to_string())
         };
     }
 
-
-    fn parse_alias(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = ALIAS_RX.captures(line_str) {
-            self.aliases.push((captures[1].to_string(), captures[2].to_string()));
-            return true;
+    fn parse_alias(&mut self, line: &str) -> Result<bool, String> {
+        if let Some(captures) = ALIAS_RX.captures(line) {
+            self.aliases
+                .push((captures[1].to_string(), captures[2].to_string()));
+            return Ok(true);
         }
-        false
+        Ok(false)
     }
 
-
-    fn parse_comment_or_empty(&self, line_str: &str) -> bool {
-        COMMENT_OR_EMPTY_FULL_RX.is_match(line_str)
-    }
-
-
-    fn parse_board(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = BOARD_SIZE_RX.captures(line_str) {
-            self.layout.board.w = captures[1].parse::<isize>().unwrap() as usize;
-            self.layout.board.h = captures[2].parse::<isize>().unwrap() as usize;
-            return true;
+    fn parse_comment_or_empty(&self, line: &str) -> Result<bool, String> {
+        match COMMENT_OR_EMPTY_FULL_RX.captures(line) {
+            Some(_) => return Ok(true),
+            None => return Ok(false),
         }
-        false
     }
 
-
-    fn parse_offset(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = OFFSET_RX.captures(line_str) {
-            self.offset.x = captures[1].parse::<isize>().unwrap();
-            self.offset.y = captures[2].parse::<isize>().unwrap();
-            return true;
-        }
-        false
-    }
-
-    fn parse_package(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = PKG_NAME_RX.captures(line_str) {
-            let pkg_name = captures[1].to_string();
-            let pkg_pos = captures[2].to_string();
-            let mut v = Vec::new();
-            for s in PKG_SEP_RX.split(&pkg_pos) {
-                if let Some(captures) = PKG_POS_RX.captures(s) {
-                    v.push(OffsetVia::new(
-                        captures[1].parse::<isize>().unwrap(),
-                        captures[2].parse::<isize>().unwrap(),
-                    ));
-                } else {
-                    return false;
-                }
+    fn parse_board(&mut self, line: &str) -> Result<bool, String> {
+        match BOARD_SIZE_RX.captures(line) {
+            Some(captures) => {
+                self.layout.board.w = captures[1].parse::<isize>().unwrap() as usize;
+                self.layout.board.h = captures[2].parse::<isize>().unwrap() as usize;
+                return Ok(true);
             }
-            self.layout.circuit.package_to_pos_map.insert(pkg_name, v);
-            return true;
+            None => return Ok(false),
         }
-        false
     }
 
-
-    fn parse_component(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = COMPONENT_FULL_RX.captures(line_str) {
-            let component_name = captures[1].to_string();
-            let package_name = captures[2].to_string();
-            let x = captures[3].parse::<isize>().unwrap();
-            let y = captures[4].parse::<isize>().unwrap();
-            if !self.layout.circuit.package_to_pos_map.contains_key(&package_name) {
-                panic!("Unknown package: {}", package_name);
+    fn parse_offset(&mut self, line: &str) -> Result<bool, String> {
+        match OFFSET_RX.captures(line) {
+            Some(captures) => {
+                self.offset.x = captures[1].parse::<isize>().unwrap();
+                self.offset.y = captures[2].parse::<isize>().unwrap();
+                return Ok(true);
             }
-            let p = Via::new((x + self.offset.x) as usize, (y + self.offset.y) as usize);
-            let mut i = 0;
-            for v in self.layout.circuit.package_to_pos_map.get(&package_name).unwrap() {
-                // if p.x + v.x < 0 || p.x + v.x >= self.layout.board.w || p.y + v.y < 0 || p.y + v.y >= self.layout.board.h {
-                //     panic!("Component pin outside of board: {}.{}", component_name, i + 1);
-                // }
-                i += 1;
-            }
-            let component = Component::new(package_name, p);
-            self.layout.circuit.component_name_to_component_map.insert(component_name, component);
-            return true;
+            None => return Ok(false),
         }
-        false
     }
 
-
-    fn parse_dont_care(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = DONT_CARE_FULL_RX.captures(line_str) {
-            let component_name = captures[1].to_string();
-            let component = self.layout.circuit.component_name_to_component_map.get_mut(&component_name);
-            match component {
-                None => panic!("Unknown component: {}", component_name),
-                Some(component) => {
-                    let package_pos_vec = self.layout.circuit.package_to_pos_map.get(&component.package_name).unwrap();
-                    for captures in DONT_CARE_PIN_IDX_RX.captures_iter(line_str) {
-                        let dont_care_pin_idx = captures[1].parse::<usize>().unwrap();
-                        if dont_care_pin_idx < 1 || dont_care_pin_idx  > package_pos_vec.len() {
-                            panic!(
-                                "Invalid \"Don't Care\" pin number for {}: {}. Must be between 1 and {} (including)",
-                                component_name, dont_care_pin_idx, package_pos_vec.len()
-                            );
-                        }
-                        component.dont_care_pin_idx_set.insert(dont_care_pin_idx - 1);
+    fn parse_package(&mut self, line: &str) -> Result<bool, String> {
+        match PKG_NAME_RX.captures(line) {
+            Some(captures) => {
+                let pkg_name = captures[1].to_string();
+                let pkg_pos = captures[2].to_string();
+                let mut v = Vec::new();
+                for s in PKG_SEP_RX.split(&pkg_pos) {
+                    if let Some(captures) = PKG_POS_RX.captures(s) {
+                        v.push(OffsetVia::new(
+                            captures[1].parse::<isize>().unwrap(),
+                            captures[2].parse::<isize>().unwrap(),
+                        ));
+                    } else {
+                        return Ok(false);
                     }
-                    return true;
+                }
+                self.layout.circuit.package_to_pos_map.insert(pkg_name, v);
+                return Ok(true);
+            }
+            None => return Ok(false),
+        }
+    }
+
+    fn parse_component(&mut self, line: &str) -> Result<bool, String> {
+        match COMPONENT_FULL_RX.captures(line) {
+            Some(captures) => {
+                let component_name = captures[1].to_string();
+                let package_name = captures[2].to_string();
+                let x = captures[3].parse::<isize>().unwrap();
+                let y = captures[4].parse::<isize>().unwrap();
+                if !self
+                    .layout
+                    .circuit
+                    .package_to_pos_map
+                    .contains_key(&package_name)
+                {
+                    return Err(format!("Unknown package: {}", package_name));
+                }
+                let p = OffsetVia::new(x + self.offset.x, y + self.offset.y);
+                let mut i = 0;
+                for o in self
+                    .layout
+                    .circuit
+                    .package_to_pos_map
+                    .get(&package_name)
+                    .unwrap()
+                {
+                    if p.x + o.x < 0
+                        || p.x + o.x >= self.layout.board.w as isize
+                        || p.y + o.y < 0
+                        || p.y + o.y >= self.layout.board.h as isize
+                    {
+                        return Err(format!(
+                            "Component pin outside of board: {}.{}",
+                            component_name,
+                            i + 1
+                        ));
+                    }
+                    i += 1;
+                }
+                let component = Component::new(package_name, via_from_offset(&p));
+                self.layout
+                    .circuit
+                    .component_name_to_component_map
+                    .insert(component_name, component);
+                return Ok(true);
+            }
+            None => return Ok(false),
+        };
+    }
+
+    fn parse_dont_care(&mut self, line: &str) -> Result<bool, String> {
+        match DONT_CARE_FULL_RX.captures(line) {
+            Some(captures) => {
+                let component_name = captures[1].to_string();
+                let component = self
+                    .layout
+                    .circuit
+                    .component_name_to_component_map
+                    .get_mut(&component_name);
+                match component {
+                    Some(component) => {
+                        let package_pos_vec = self
+                            .layout
+                            .circuit
+                            .package_to_pos_map
+                            .get(&component.package_name)
+                            .unwrap();
+                        for captures in DONT_CARE_PIN_IDX_RX.captures_iter(line) {
+                            let dont_care_pin_idx = captures[1].parse::<usize>().unwrap();
+                            if dont_care_pin_idx < 1 || dont_care_pin_idx > package_pos_vec.len() {
+                                return Err(format!(
+                                    "Invalid \"Don't Care\" pin number for {}: {}. \
+                                    Must be between 1 and {} (including)",
+                                    component_name,
+                                    dont_care_pin_idx,
+                                    package_pos_vec.len()
+                                ));
+                            }
+                            component
+                                .dont_care_pin_idx_set
+                                .insert(dont_care_pin_idx - 1);
+                        }
+                        return Ok(true);
+                    }
+                    None => return Err(format!("Unknown component: {}", component_name)),
                 }
             }
+            None => return Ok(false),
         }
-        false
     }
 
-    fn parse_connection(&mut self, line_str: &str) -> bool {
-        if let Some(captures) = CONNECTION_FULL_RX.captures(line_str) {
-            let start = ConnectionPoint::new(
-                captures[1].to_string(),
-                captures[2].parse::<usize>().unwrap() - 1,
-            );
-            let end = ConnectionPoint::new(
-                captures[3].to_string(),
-                captures[4].parse::<usize>().unwrap() - 1,
-            );
-            self.check_connection_point(&start);
-            self.check_connection_point(&end);
-            if start.component_name != end.component_name || start.pin_idx != end.pin_idx {
-                self.layout.circuit.connection_vec.push(Connection::new(start, end));
+    fn parse_connection(&mut self, line: &str) -> Result<bool, String> {
+        return match CONNECTION_FULL_RX.captures(line) {
+            Some(captures) => {
+                let start = ConnectionPoint::new(
+                    captures[1].to_string(),
+                    captures[2].parse::<usize>().unwrap() - 1,
+                );
+                let end = ConnectionPoint::new(
+                    captures[3].to_string(),
+                    captures[4].parse::<usize>().unwrap() - 1,
+                );
+                self.check_connection_point(&start)?;
+                self.check_connection_point(&end)?;
+                if start.component_name != end.component_name || start.pin_idx != end.pin_idx {
+                    self.layout
+                        .circuit
+                        .connection_vec
+                        .push(Connection::new(start, end));
+                }
+                Ok(true)
             }
-            return true;
-        }
-        false
+            None => Ok(false),
+        };
     }
 
-    fn check_connection_point(&self, connection_point: &ConnectionPoint) {
-        let component = self.layout.circuit.component_name_to_component_map.get(&connection_point.component_name);
+    fn check_connection_point(&self, connection_point: &ConnectionPoint) -> Result<(), String> {
+        let component = self
+            .layout
+            .circuit
+            .component_name_to_component_map
+            .get(&connection_point.component_name);
         match component {
-            None => panic!("Unknown component: {}", connection_point.component_name),
             Some(component) => {
-                let package_pos_vec = self.layout.circuit.package_to_pos_map.get(&component.package_name).unwrap();
+                let package_pos_vec = self
+                    .layout
+                    .circuit
+                    .package_to_pos_map
+                    .get(&component.package_name)
+                    .unwrap();
                 let pin_idx_1_base = connection_point.pin_idx + 1;
-                if pin_idx_1_base < 1 || pin_idx_1_base  > package_pos_vec.len() {
-                    panic!(
+                if pin_idx_1_base < 1 || pin_idx_1_base > package_pos_vec.len() {
+                    return Err(format!(
                         "Invalid pin number for {}.{}. Must be between 1 and {} (including)",
-                        connection_point.component_name, pin_idx_1_base, package_pos_vec.len()
-                    );
+                        connection_point.component_name,
+                        pin_idx_1_base,
+                        package_pos_vec.len()
+                    ));
                 }
-                if component.dont_care_pin_idx_set.contains(&connection_point.pin_idx) {
-                    panic!(
+                if component
+                    .dont_care_pin_idx_set
+                    .contains(&connection_point.pin_idx)
+                {
+                    return Err(format!(
                         "Invalid pin number for {}.{}. Pin has been set as \"Don't Care\"",
                         connection_point.component_name, pin_idx_1_base
-                    );
+                    ));
                 }
+                Ok(())
             }
+            None => Err(format!(
+                "Unknown component: {}",
+                connection_point.component_name
+            )),
         }
     }
 }
-

@@ -36,9 +36,8 @@ pub struct Layout {
     pub n_completed_routes: usize,
     pub n_failed_routes: usize,
     pub num_shortcuts: usize,
-    pub is_ready_for_routing: bool,
     pub is_ready_for_eval: bool,
-    pub has_error: bool,
+    // pub has_error: bool,
     pub layout_info_vec: StringVec,
     pub route_vec: RouteVec,
     pub strip_cut_vec: StripCutVec,
@@ -52,7 +51,6 @@ pub struct Layout {
     pub diag_cost_vec: CostViaVec,
     pub diag_route_step_vec: RouteStepVec,
     pub diag_trace_vec: WireLayerViaVec,
-    pub error_string_vec: StringVec,
     pub mutex_: Mutex<()>,
     pub timestamp_: Instant,
 }
@@ -70,9 +68,8 @@ impl Layout {
             n_failed_routes: 0,
             num_shortcuts: 0,
 
-            is_ready_for_routing: false,
             is_ready_for_eval: false,
-            has_error: false,
+            // has_error: false,
 
             layout_info_vec: StringVec::new(),
             route_vec: RouteVec::new(),
@@ -90,7 +87,6 @@ impl Layout {
             diag_cost_vec: CostViaVec::new(),
             diag_route_step_vec: RouteStepVec::new(),
             diag_trace_vec: WireLayerViaVec::new(),
-            error_string_vec: StringVec::new(),
             mutex_: Mutex::new(()),
             timestamp_: Instant::now(),
         }
@@ -111,9 +107,8 @@ impl Layout {
         self.n_completed_routes = other.n_completed_routes;
         self.n_failed_routes = other.n_failed_routes;
         self.num_shortcuts = other.num_shortcuts;
-        self.is_ready_for_routing = other.is_ready_for_routing;
         self.is_ready_for_eval = other.is_ready_for_eval;
-        self.has_error = other.has_error;
+        // self.has_error = other.has_error;
         self.layout_info_vec = other.layout_info_vec.clone();
         self.route_vec = other.route_vec.clone();
         self.strip_cut_vec = other.strip_cut_vec.clone();
@@ -123,7 +118,6 @@ impl Layout {
         self.diag_start_via = other.diag_start_via.clone();
         self.diag_end_via = other.diag_end_via.clone();
         self.diag_route_step_vec = other.diag_route_step_vec.clone();
-        self.error_string_vec = other.error_string_vec.clone();
         self.timestamp_ = other.timestamp_;
     }
 

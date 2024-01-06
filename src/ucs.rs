@@ -192,19 +192,14 @@ impl UniformCostSearch {
         let mut check_stuck_cnt = 0;
 
         while c.via != start.via || c.is_wire_layer != start.is_wire_layer {
-            if check_stuck_cnt > board.w * board.h {
-                layout.error_string_vec.push(format!(
-                    "Error: backtraceLowestCostRoute() stuck at {}", c
-                ));
-                layout.diag_start_via = ValidVia::from_via(start.via);
-                layout.diag_end_via = ValidVia::from_via(end.via);
-                layout.diag_route_step_vec = route_step_vec.clone();
-                layout.has_error = true;
-                break;
-            }
+            check_stuck_cnt += 1;
+            // If this assert fails, the backtrace has become stuck in an infinite loop.
+            // This indicates a bug in find_cost(). The dump_costs() method will
+            // probably show that the current location is one which does not have any
+            // lower cost neighbours.
+            assert!(check_stuck_cnt < board.w * board.h);
 
             let mut n = c.clone();
-
             // println!("c: {:?}", c);;
 
             if c.is_wire_layer {

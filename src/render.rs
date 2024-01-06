@@ -2,9 +2,11 @@ use std::f32::consts::PI;
 
 use egui::*;
 
-use crate::gui;
+use crate::circuit::Circuit;
 use crate::layout::Layout;
 use crate::via::{Pos, StartEndVia, ValidVia, Via};
+
+use std::collections::HashMap;
 
 // const CIRCUIT_FONT_SIZE: f32 = 1.0;
 // // const CIRCUIT_FONT_PATH: &str = "/home/dahl/.fonts/Roboto/hinted/Roboto-Regular.ttf";
@@ -14,12 +16,16 @@ const VIA_RADIUS: f32 = 0.2;
 const WIRE_WIDTH: f32 = 0.125;
 const RATS_NEST_WIRE_WIDTH: f32 = 0.2;
 const CONNECTION_WIDTH: f32 = 0.2;
+// Label text changes with zoom.
 const LABEL_SIZE_POINT: f32 = 0.75;
-const DIAG_SIZE_POINT: f32 = 0.25;
+// Diagnostics text is fixed size (does not zoom)
+const DIAG_SIZE_POINT: f32 = 12.0;
 
 pub struct Render {
     label_font_id: FontId,
     diag_font_id: FontId,
+
+    board_screen_offset: Pos,
     zoom: f32,
     mouse_board_pos: Pos,
 
@@ -51,43 +57,41 @@ pub struct Render {
     diag_end_pos_color: Color32,
 
     notation_color: Color32,
+    // top_left: Pos,
 }
 
 impl Render {
-    pub fn new(zoom: f32) -> Self {
+    pub fn new(/*top_left: &Pos, */ zoom: f32) -> Self {
         Self {
             label_font_id: FontId::new(zoom * LABEL_SIZE_POINT, FontFamily::Monospace),
-            diag_font_id: FontId::new(zoom * DIAG_SIZE_POINT, FontFamily::Monospace),
+            diag_font_id: FontId::new(DIAG_SIZE_POINT, FontFamily::Monospace),
+
+            board_screen_offset: Pos::new(0.0, 0.0),
             zoom,
             mouse_board_pos: Pos::new(0.0, 0.0),
+            // top_left: *top_left,
 
+            // Colors
             strip_regular_color: Self::color(0.85, 0.565, 0.345, 1.0),
             strip_dimmed_color: Self::color(0.85 * 0.3, 0.565 * 0.3, 0.345 * 0.3, 1.0),
             strip_via_color: Self::color(0.0, 0.0, 0.0, 1.0),
-
             wire_regular_color: Self::color(0.7, 0.7, 0.7, 1.0),
             wire_dimmed_color: Self::color(0.3, 0.3, 0.3, 1.0),
-
             strip_cut_color: Self::color(0.0, 0.8, 0.8, 1.0),
-
             component_color: Self::color(0.0, 0.0, 0.0, 0.4),
             component_pin_color: Self::color(0.784, 0.0, 0.0, 1.0),
             component_dont_care_pin_color: Self::color(0.0, 0.784, 0.0, 1.0),
-            component_name_color: Self::color(0.0, 0.0, 0.0, 1.0),
-
+            component_name_color: Self::color(1.0, 1.0, 1.0, 1.0),
             rats_nest_unrouted_color: Self::color(0.0, 0.392, 0.784, 0.5),
             rats_nest_success_color: Self::color(0.0, 0.584, 0.192, 0.5),
             rats_nest_failed_color: Self::color(0.784, 0.3, 0.0, 0.5),
-
             border_color: Self::color(0.0, 0.0, 0.0, 1.0),
-
             diag_wire_layer_color: Self::color(1.0, 0.0, 0.0, 1.0),
             diag_strip_layer_color: Self::color(0.0, 1.0, 0.0, 1.0),
             diag_wire_cost_color: Self::color(1.0, 0.0, 0.0, 1.0),
             diag_strip_cost_color: Self::color(0.0, 1.0, 0.0, 1.0),
             diag_start_pos_color: Self::color(1.0, 1.0, 1.0, 1.0),
             diag_end_pos_color: Self::color(1.0, 1.0, 1.0, 1.0),
-
             notation_color: Self::color(0.0, 0.0, 0.0, 1.0),
         }
     }
@@ -114,8 +118,7 @@ impl Render {
         show_rats_nest: bool,
         show_only_failed: bool,
     ) {
-        let top_left = self.to_pos(ui.min_rect().left_top());
-        let mouse_via = self.get_mouse_via(ui, layout, top_left);
+        let mouse_via = self.get_mouse_via(ui, layout);
         // println!("mouse_via: {:?}", mouse_via);
 
         let mouse_net = self.get_net(ui, layout, &mouse_via);
@@ -128,8 +131,8 @@ impl Render {
         if show_rats_nest {
             self.draw_rats_nest(ui, layout, show_only_failed);
         }
-        // self.draw_border(ui, layout);
-        if layout.has_error {
+        self.draw_border(ui, layout);
+        if layout.circuit.has_parser_error() {
             self.draw_diag(ui, layout);
         }
     }
@@ -216,7 +219,12 @@ impl Render {
                         CONNECTION_WIDTH,
                         &color,
                     );
-                    self.draw_filled_circle(ui, section.start.via.cast::<f32>(), VIA_RADIUS, &color);
+                    self.draw_filled_circle(
+                        ui,
+                        section.start.via.cast::<f32>(),
+                        VIA_RADIUS,
+                        &color,
+                    );
                     self.draw_filled_circle(ui, section.end.via.cast::<f32>(), VIA_RADIUS, &color);
                 }
             }
@@ -272,14 +280,7 @@ impl Render {
                 start.x + (end.x - start.x) / 2.0,
                 start.y + (end.y - start.y) / 2.0,
             );
-            let txt_center_s = gui::board_to_scr_pos(&txt_center_b, self.zoom, &Pos::new(0.0, 0.0));
-            self.draw_text(
-                ui,
-                txt_center_b,
-                component_name,
-                &self.component_name_color,
-                true,
-            );
+            self.draw_board_text(ui, txt_center_b, component_name, &self.component_name_color);
         }
     }
 
@@ -345,181 +346,196 @@ impl Render {
             radius,
             &self.border_color,
         );
-        self.draw_thick_line(ui, Pos::new(end.x, start.y), end, radius, &self.border_color);
-        self.draw_thick_line(ui, Pos::new(start.x, end.y), end, radius, &self.border_color);
+        self.draw_thick_line(
+            ui,
+            Pos::new(end.x, start.y),
+            end,
+            radius,
+            &self.border_color,
+        );
+        self.draw_thick_line(
+            ui,
+            Pos::new(start.x, end.y),
+            end,
+            radius,
+            &self.border_color,
+        );
     }
 
     pub fn draw_diag(&self, ui: &mut Ui, layout: &Layout) {
         // Draw diag route if specified
-        for v in &layout.diag_route_step_vec {
-            let color = if v.is_wire_layer {
-                self.diag_wire_layer_color
-            } else {
-                self.diag_strip_layer_color
-            };
-            self.draw_filled_circle(ui, v.via.cast::<f32>(), 1.0, &color);
-        }
-        // Draw dots where costs have been set.
-        for y in 0..layout.board.h {
-            for x in 0..layout.board.w {
-                let idx = x + layout.board.w * y;
-                let v = &layout.diag_cost_vec[idx];
-                if v.wire_cost != usize::MAX {
-                    self.draw_filled_circle(
-                        ui,
-                        Pos::new(x as f32 - 0.2, y as f32),
-                        0.75,
-                        &self.diag_wire_cost_color,
-                    );
-                }
-                if v.strip_cost != usize::MAX {
-                    self.draw_filled_circle(
-                        ui,
-                        Pos::new(x as f32 + 0.2, y as f32),
-                        0.75,
-                        &self.diag_strip_cost_color,
-                    );
-                }
-            }
-        }
-        // Draw start and end positions if set.
-        if layout.diag_start_via.is_valid {
-            self.draw_filled_circle(
-                ui,
-                layout.diag_start_via.via.cast::<f32>(),
-                1.5,
-                &self.diag_start_pos_color,
-            );
-            self.print_notation(
-                ui,
-                layout.diag_start_via.via.cast::<f32>(),
-                0,
-                &"start".to_string(),
-            );
-        }
-        if layout.diag_end_via.is_valid {
-            self.draw_filled_circle(
-                ui,
-                layout.diag_end_via.via.cast::<f32>(),
-                1.5,
-                &self.diag_end_pos_color,
-            );
-            self.print_notation(
-                ui,
-                layout.diag_end_via.via.cast::<f32>(),
-                0,
-                &"end".to_string(),
-            );
-        }
-        // Draw wire jump labels
-        for y in 0..layout.board.h {
-            for x in 0..layout.board.w {
-                let wire_to_via =
-                    &layout.diag_trace_vec[layout.board.idx(Via::new(x, y))].wire_to_via;
-                if wire_to_via.is_valid {
-                    self.print_notation(
-                        ui,
-                        Pos::new(x as f32, y as f32),
-                        0,
-                        &format!("->{}", wire_to_via.via.to_string()),
-                    );
-                }
-            }
-        }
+        // for v in &layout.diag_route_step_vec {
+        //     let color = if v.is_wire_layer {
+        //         self.diag_wire_layer_color
+        //     } else {
+        //         self.diag_strip_layer_color
+        //     };
+        //     self.draw_filled_circle(ui, v.via.cast::<f32>(), 0.3, &color);
+        // }
+        // // Draw dots where costs have been set.
+        // for y in 0..layout.board.h {
+        //     for x in 0..layout.board.w {
+        //         let idx = x + layout.board.w * y;
+        //         let v = &layout.diag_cost_vec[idx];
+        //         if v.wire_cost != usize::MAX {
+        //             self.draw_filled_circle(
+        //                 ui,
+        //                 Pos::new(x as f32 - 0.2, y as f32),
+        //                 0.75,
+        //                 &self.diag_wire_cost_color,
+        //             );
+        //         }
+        //         if v.strip_cost != usize::MAX {
+        //             self.draw_filled_circle(
+        //                 ui,
+        //                 Pos::new(x as f32 + 0.2, y as f32),
+        //                 0.75,
+        //                 &self.diag_strip_cost_color,
+        //             );
+        //         }
+        //     }
+        // }
+        // // Draw start and end positions if set.
+        // if layout.diag_start_via.is_valid {
+        //     self.draw_filled_circle(
+        //         ui,
+        //         layout.diag_start_via.via.cast::<f32>(),
+        //         1.5,
+        //         &self.diag_start_pos_color,
+        //     );
+        //     self.draw_diag_text(
+        //         ui,
+        //         layout.diag_start_via.via.cast::<f32>(),
+        //         0,
+        //         &"start".to_string(),
+        //     );
+        // }
+        // if layout.diag_end_via.is_valid {
+        //     self.draw_filled_circle(
+        //         ui,
+        //         layout.diag_end_via.via.cast::<f32>(),
+        //         1.5,
+        //         &self.diag_end_pos_color,
+        //     );
+        //     self.draw_diag_text(
+        //         ui,
+        //         layout.diag_end_via.via.cast::<f32>(),
+        //         0,
+        //         &"end".to_string(),
+        //     );
+        // }
+        // // Draw wire jump labels
+        // for y in 0..layout.board.h {
+        //     for x in 0..layout.board.w {
+        //         let wire_to_via =
+        //             &layout.diag_trace_vec[layout.board.idx(Via::new(x, y))].wire_to_via;
+        //         if wire_to_via.is_valid {
+        //             self.draw_diag_text(
+        //                 ui,
+        //                 Pos::new(x as f32, y as f32),
+        //                 0,
+        //                 &format!("->{}", wire_to_via.via.to_string()),
+        //             );
+        //         }
+        //     }
+        // }
         // Print error notice and any info
-        let mut n_line = 0;
-        let side_board_pos =
-            gui::screen_to_board_pos(&Pos::new(0.0, 300.0), self.zoom, &Pos::new(0.0, 0.0));
-        self.print_notation(ui, side_board_pos, n_line, &"Diag".to_string());
-        n_line += 1;
-        self.print_notation(ui, side_board_pos, n_line, &"wire = red".to_string());
-        n_line += 1;
-        self.print_notation(ui, side_board_pos, n_line, &"strip = green".to_string());
-        n_line += 1;
-        for str in &layout.error_string_vec {
-            self.print_notation(ui, side_board_pos, n_line, str);
-            n_line += 1;
+        // let top_left = self.to_pos(ui.min_rect().left_top());
+        let mut y_pos = 5.0;
+        // y_pos += self.draw_diag_text(ui, y_pos, &"Diag".to_string());
+        // y_pos += self.draw_diag_text(ui, y_pos, &"wire = red".to_string());
+        // y_pos += self.draw_diag_text(ui, y_pos, &"strip = green".to_string());
+        // Parser errors
+        y_pos += self.draw_diag_text(ui, y_pos, &"Circuit file error(s):".to_string());
+        y_pos += self.draw_diag_text(ui, y_pos, &"".to_string());
+        for msg in &layout.circuit.parser_error_vec {
+            y_pos += self.draw_diag_text(ui, y_pos, msg);
         }
-        // Mouse pointer coordinate info
-        let v = self.get_mouse_via(ui, layout, side_board_pos); // RIGHT POS??
-        if v.is_valid {
-            n_line = 2;
-            let idx = layout.board.idx(v.via);
-            self.print_notation(ui, self.mouse_board_pos, n_line, &format!("{}", v.via));
-            n_line += 1;
-            let via_cost = &layout.diag_cost_vec[idx];
-            self.print_notation(
-                ui,
-                self.mouse_board_pos,
-                n_line,
-                &format!("wireCost: {}", via_cost.wire_cost),
-            );
-            n_line += 1;
-            self.print_notation(
-                ui,
-                self.mouse_board_pos,
-                n_line,
-                &format!("stripCost: {}", via_cost.strip_cost),
-            );
-            n_line += 1;
-            let via_trace = &layout.diag_trace_vec[idx];
-            self.print_notation(
-                ui,
-                self.mouse_board_pos,
-                n_line,
-                &format!("wireBlocked: {}", via_trace.is_wire_side_blocked),
-            );
-            n_line += 1;
-            // Nets
-            self.print_notation(ui, self.mouse_board_pos, n_line, &"".to_string());
-            n_line += 1;
-            let set_idx_size = layout.set_idx_vec.len();
-            if set_idx_size > 0 {
-                let set_idx = layout.set_idx_vec[idx];
-                self.print_notation(
-                    ui,
-                    self.mouse_board_pos,
-                    n_line,
-                    &format!("setIdx: {}", set_idx),
-                );
-                n_line += 1;
-                self.print_notation(
-                    ui,
-                    self.mouse_board_pos,
-                    n_line,
-                    &format!("setSize: {}", layout.via_set_vec[set_idx].len()),
-                );
-                n_line += 1;
-            }
-        }
+        // // Mouse pointer coordinate info
+        // let v = self.get_mouse_via(ui, layout, board_pos); // RIGHT POS??
+        // if v.is_valid {
+        //     n_line = 2;
+        //     let idx = layout.board.idx(v.via);
+        //     self.draw_diag_text(ui, self.mouse_board_pos, n_line, &format!("{}", v.via));
+        //     n_line += 1;
+        //     let via_cost = &layout.diag_cost_vec[idx];
+        //     self.draw_diag_text(
+        //         ui,
+        //         self.mouse_board_pos,
+        //         n_line,
+        //         &format!("wireCost: {}", via_cost.wire_cost),
+        //     );
+        //     n_line += 1;
+        //     self.draw_diag_text(
+        //         ui,
+        //         self.mouse_board_pos,
+        //         n_line,
+        //         &format!("stripCost: {}", via_cost.strip_cost),
+        //     );
+        //     n_line += 1;
+        //     let via_trace = &layout.diag_trace_vec[idx];
+        //     self.draw_diag_text(
+        //         ui,
+        //         self.mouse_board_pos,
+        //         n_line,
+        //         &format!("wireBlocked: {}", via_trace.is_wire_side_blocked),
+        //     );
+        //     n_line += 1;
+        //     // Nets
+        //     self.draw_diag_text(ui, self.mouse_board_pos, n_line, &"".to_string());
+        //     n_line += 1;
+        //     let set_idx_size = layout.set_idx_vec.len();
+        //     if set_idx_size > 0 {
+        //         let set_idx = layout.set_idx_vec[idx];
+        //         self.draw_diag_text(
+        //             ui,
+        //             self.mouse_board_pos,
+        //             n_line,
+        //             &format!("setIdx: {}", set_idx),
+        //         );
+        //         n_line += 1;
+        //         self.draw_diag_text(
+        //             ui,
+        //             self.mouse_board_pos,
+        //             n_line,
+        //             &format!("setSize: {}", layout.via_set_vec[set_idx].len()),
+        //         );
+        //         n_line += 1;
+        //     }
+        // }
     }
 
     // Get the via that the mouse is currently hovering over. Any via on the board is
     // valid. If the mouse is not in the board area, return a ValidVia with is_valid =
     // false.
-    pub fn get_mouse_via(&self, ui: &mut Ui, layout: &Layout, offset_pos: Pos) -> ValidVia {
-        ui.input(|input| {
+    pub fn get_mouse_via(&self, ui: &mut Ui, layout: &Layout) -> ValidVia {
+        let hover_pos = ui.input(|input| {
             let pointer_state = &input.pointer;
             if pointer_state.has_pointer() {
-                let hover_pos = self.to_pos(pointer_state.hover_pos().unwrap());
-                let board_pos = gui::screen_to_board_pos(&hover_pos, self.zoom, &offset_pos);
-                if board_pos.x >= 0.0 && board_pos.y >= 0.0 {
-                    let via = Via::new(board_pos.x.round() as usize, board_pos.y.round() as usize);
-                    let is_valid = via.x < layout.board.w && via.y < layout.board.h;
-                    ValidVia { via, is_valid }
-                } else {
-                    ValidVia {
-                        via: Via::new(0, 0),
-                        is_valid: false,
-                    }
-                }
+                pointer_state.hover_pos()
+                // self.to_pos()
+            } else {
+                None
+            }
+        });
+        if let Some(hover_pos) = hover_pos {
+            let board_pos = self.draw_to_board_pos(ui, &self.pos2_to_pos(hover_pos));
+            if board_pos.x >= 0.0 && board_pos.y >= 0.0 {
+                let via = Via::new(board_pos.x.round() as usize, board_pos.y.round() as usize);
+                let is_valid = via.x < layout.board.w && via.y < layout.board.h;
+                ValidVia { via, is_valid }
             } else {
                 ValidVia {
                     via: Via::new(0, 0),
                     is_valid: false,
                 }
             }
-        })
+        } else {
+            ValidVia {
+                via: Via::new(0, 0),
+                is_valid: false,
+            }
+        }
     }
 
     // Determine if the mouse is hovering over a stripboard section that is used in
@@ -558,70 +574,89 @@ impl Render {
         }
     }
 
-    pub fn print_notation(&self, ui: &mut Ui, board_pos: Pos, n_line: usize, msg: &String) {
-        let scr_pos = gui::board_to_scr_pos(&board_pos, self.zoom, &Pos::new(0.0, 0.0));
-        self.draw_text(ui, board_pos, msg, &self.notation_color, false);
-    }
-
     pub fn draw_filled_rectangle(&self, ui: &mut Ui, start: Pos, end: Pos, color: &Color32) {
-        let top_left = self.to_pos(ui.min_rect().left_top());
-        let start = gui::board_to_scr_pos(&start, self.zoom, &top_left);
-        let end = gui::board_to_scr_pos(&end, self.zoom, &top_left);
-        let rect = Shape::rect_filled(
-            Rect::from_min_max(self.to_pos2(start), self.to_pos2(end)),
-            0.0,
-            *color,
-        );
+        let start = self.to_draw_pos2(ui, &start);
+        let end = self.to_draw_pos2(ui, &end);
+        let rect = Shape::rect_filled(Rect::from_min_max(start, end), 0.0, *color);
         ui.painter().add(rect);
     }
 
     pub fn draw_filled_circle(&self, ui: &mut Ui, center: Pos, radius: f32, color: &Color32) {
-        let top_left = self.to_pos(ui.min_rect().left_top());
-        let center = gui::board_to_scr_pos(&center, self.zoom, &top_left);
-        let circle = Shape::circle_filled(self.to_pos2(center), radius * self.zoom, *color);
+        let center = self.to_draw_pos2(ui, &center);
+        let circle = Shape::circle_filled(center, radius * self.zoom, *color);
         ui.painter().add(circle);
     }
 
     pub fn draw_thick_line(&self, ui: &mut Ui, start: Pos, end: Pos, radius: f32, color: &Color32) {
-        let top_left = self.to_pos(ui.min_rect().left_top());
-        let start = gui::board_to_scr_pos(&start, self.zoom, &top_left);
-        let end = gui::board_to_scr_pos(&end, self.zoom, &top_left);
+        let start = self.to_draw_pos2(ui, &start);
+        let end = self.to_draw_pos2(ui, &end);
         // println!("draw_thick_line: {:?} - {:?}", start, end);
-        let line = Shape::line_segment(
-            [self.to_pos2(start), self.to_pos2(end)],
-            (radius * self.zoom, *color),
-        );
+        let line = Shape::line_segment([start, end], (radius * self.zoom, *color));
         ui.painter().add(line);
     }
 
-    pub fn draw_text(&self, ui: &mut Ui, pos: Pos, text: &str, color: &Color32, center: bool) {
-        let top_left = self.to_pos(ui.min_rect().left_top());
-        let pos = gui::board_to_scr_pos(&pos, self.zoom, &top_left);
+    // Draw a text string and return the Y position to use for the next string.
+    pub fn draw_diag_text(&self, ui: &mut Ui, screen_y_pos: f32, text: &String) -> f32 {
+        let screen_pos = Pos::new(10.0, screen_y_pos) + self.pos2_to_pos(ui.min_rect().left_top());
+        ui.painter()
+            .text(
+                Self::pos_to_pos2(screen_pos),
+                Align2::LEFT_TOP,
+                text,
+                self.diag_font_id.clone(),
+                Color32::RED,
+            )
+            .height()
+    }
+
+    // Draw text on the board. The text is centered on the position, specified in board
+    // coordinates.
+    pub fn draw_board_text(
+        &self,
+        ui: &mut Ui,
+        board_pos: Pos,
+        text: &str,
+        color: &Color32,
+    ) -> Rect {
+        let pos = self.to_draw_pos2(ui, &board_pos);
         ui.painter().text(
-            self.to_pos2(pos),
-            if center {
-                Align2::CENTER_CENTER
-            } else {
-                Align2::LEFT_CENTER
-            },
+            pos,
+            Align2::CENTER_CENTER,
             text,
             self.label_font_id.clone(),
-            Color32::WHITE,
-        );
+            *color,
+        )
+    }
+
+    // Convert from position as used by egui, to position used by the rest of the app.
+    // Both position types hold f32 values.
+    pub fn pos2_to_pos(&self, pos2: Pos2) -> Pos {
+        Pos::new(pos2.x, pos2.y)
     }
 
     // Convert from (x,y) position as used by the rest of the app, to position used by
     // egui. The position used in the rest of the app is an nalgebra vector type that
     // allows for easy math operations. The position used by egui is a simpler type that
     // is easier to work with when drawing. Both position types hold f32 values.
-    pub fn to_pos2(&self, pos: Pos) -> Pos2 {
+    pub fn pos_to_pos2(pos: Pos) -> Pos2 {
         Pos2::new(pos.x, pos.y)
     }
 
-    // Convert from position as used by egui, to position used by the rest of the app.
-    // Both position types hold f32 values.
-    pub fn to_pos(&self, pos2: Pos2) -> Pos {
-        Pos::new(pos2.x, pos2.y)
+    // Apply zoom factor, UI panel offset and board offset to a screen position.
+    pub fn to_draw_pos2(&self, ui: &mut Ui, screen_pos: &Pos) -> Pos2 {
+        let p = self.to_draw_pos(ui, screen_pos);
+        Self::pos_to_pos2(p)
+    }
+
+    pub fn to_draw_pos(&self, ui: &mut Ui, screen_pos: &Pos) -> Pos {
+        screen_pos * self.zoom
+            + self.pos2_to_pos(ui.min_rect().left_top())
+            + self.board_screen_offset
+    }
+
+    pub fn draw_to_board_pos(&self, ui: &mut Ui, screen_pos: &Pos) -> Pos {
+        (screen_pos - self.board_screen_offset - self.pos2_to_pos(ui.min_rect().left_top()))
+            / self.zoom
     }
 
     pub fn color(r: f32, g: f32, b: f32, a: f32) -> Color32 {
@@ -632,58 +667,27 @@ impl Render {
             (a * 255.0) as u8,
         )
     }
-    //     if self.is_point_outside_screen(center) {
-    //         return;
-    //     }
-    //     self.set_color(color);
-    //     let num_via_triangles = NUM_VIA_TRIANGLES;
-    //     let center_s = self.board_to_scr_pos(center, self.zoom, self.board_screen_offset);
-}
 
-// impl Render {
-//     pub fn ui_control(&mut self, ui: &mut Ui) -> Response {
-//         ui.horizontal(|ui| {
-//             stroke_ui(ui, &mut self.stroke, "Stroke");
-//             ui.separator();
-//             if ui.button("Clear Render").clicked() {
-//                 self.lines.clear();
-//             }
-//         }).response
-//     }
-//
-//     pub fn ui_content(&mut self, ui: &mut Ui) -> Response {
-//         let (mut response, painter) = ui.allocate_painter(ui.available_size_before_wrap(), Sense::drag());
-//
-//         let to_screen = emath::RectTransform::from_to(
-//             Rect::from_min_size(Pos2::ZERO, response.rect.square_proportions()),
-//             response.rect,
-//         );
-//         let from_screen = to_screen.inverse();
-//
-//         if self.lines.is_empty() {
-//             self.lines.push(vec![]);
-//         }
-//
-//         let current_line = self.lines.last_mut().unwrap();
-//
-//         if let Some(pointer_pos) = response.interact_pointer_pos() {
-//             let canvas_pos = from_screen * pointer_pos;
-//             if current_line.last() != Some(&canvas_pos) {
-//                 current_line.push(canvas_pos);
-//                 response.mark_changed();
-//             }
-//         } else if !current_line.is_empty() {
-//             self.lines.push(vec![]);
-//             response.mark_changed();
-//         }
-//
-//         let shapes = self.lines.iter().filter(|line| line.len() >= 2).map(|line| {
-//             let points: Vec<Pos2> = line.iter().map(|p| to_screen * *p).collect();
-//             Shape::line(points, self.stroke)
-//         });
-//
-//         painter.extend(shapes);
-//
-//         response
-//     }
-// }
+    pub fn get_component_at_board_pos(circuit: &mut Circuit, board_pos: &Pos) -> Option<String> {
+        // for (component_name, _) in &circuit.component_name_to_component_map {
+        //     let footprint = circuit.calc_component_footprint(component_name);
+        //     let mut start = footprint.start.cast::<f32>();
+        //     let mut end = footprint.end.cast::<f32>();
+        //     start -= 0.5;
+        //     end += 0.5;
+        //     let p = board_pos;
+        //     if p.x >= start.x && p.x <= end.x && p.y >= start.y && p.y <= end.y {
+        //         return Some(component_name.clone());
+        //     }
+        // }
+        None
+    }
+
+    pub fn set_component_position(circuit: &mut Circuit, mouse_via: &Pos, component_name: &str) {
+        // circuit
+        //     .component_name_to_component_map
+        //     .get_mut(component_name)
+        //     .unwrap()
+        //     .pin0_abs_pos = *mouse_via;
+    }
+}
