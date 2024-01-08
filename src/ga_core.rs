@@ -1,8 +1,7 @@
 use rand::distributions::{Distribution, Uniform};
-use rand::rngs::{OsRng, ThreadRng};
-use rand::{thread_rng, Rng};
+use rand::rngs::StdRng;
+use rand::{thread_rng, Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
-use rand::rngs::adapter::ReseedingRng;
 
 //
 // Random
@@ -11,58 +10,42 @@ use rand::rngs::adapter::ReseedingRng;
 type GeneIdx = usize;
 
 pub struct RandomIntGenerator {
-    // random_engine: ThreadRng,
-    random_engine: Arc<Mutex<ThreadRng>>,
-    // random_engine: Arc<Mutex<ReseedingRng<R, Rsdr>>>,
-    // uniform_int_distribution: Arc<Mutex<Uniform<usize>>>,
+    // random_engine: StdRng,
+    random_engine: Arc<Mutex<StdRng>>,
+    uniform_int_distribution: Uniform<usize>,
 }
 
 impl RandomIntGenerator {
     pub fn new() -> Self {
         Self {
-            // random_engine: Arc::new(Mutex::new(thread_rng())),
-            random_engine: Arc::new(Mutex::new(ThreadRng::default())),
-            // uniform_int_distribution: Arc::new(Mutex::new(Uniform::new_inclusive(0, usize::MAX))),
+            random_engine: Arc::new(Mutex::new(StdRng::from_entropy())),
+            uniform_int_distribution: Uniform::new_inclusive(0, usize::MAX),
         }
     }
 
     pub fn with_range(min: usize, max: usize) -> Self {
         let mut rng = Self::new();
-        // rng.set_range(min, max);
+        rng.set_range(min, max);
         rng
     }
 
     pub fn set_range(&mut self, min: usize, max: usize) {
-        // self.uniform_int_distribution = Arc::new(Mutex::new(Uniform::new_inclusive(min, max)));
+        self.uniform_int_distribution = Uniform::new_inclusive(min, max);
     }
 
     pub fn get_random_int(&mut self) -> usize {
-        // self.uniform_int_distribution
-        //     .lock().unwrap().sample(&mut *self.random_engine.lock().unwrap())
-        0
+        self.uniform_int_distribution
+            .sample(&mut *self.random_engine.lock().unwrap())
     }
 }
 
-pub struct RandomFloatGenerator {
-    // random_engine: ThreadRng,
-    random_engine: Arc<Mutex<ThreadRng>>,
-    uniform_float_distribution: Uniform<f64>,
-}
+pub struct RandomFloatGenerator;
 
 impl RandomFloatGenerator {
-    pub fn new() -> Self {
-        Self {
-            random_engine: Arc::new(Mutex::new(thread_rng())),
-            // TODO: Check if I should use inclusive or exclusive range.
-            // uniform_float_distribution: Uniform::new_inclusive(0.0, 1.0),
-            uniform_float_distribution: Uniform::new(0.0, 1.0),
-        }
-    }
-
-    pub fn get_normalized_random(&self) -> f64 {
-        // random_engine: Arc::new(Mutex::new(thread_rng())),
-        // let mut rng = thread_rng();
-        self.random_engine.lock().unwrap().sample(self.uniform_float_distribution)
+    pub fn get_normalized_random() -> f64 {
+        let mut rng = thread_rng();
+        let uniform = Uniform::new(0.0, 1.0);
+        rng.sample(uniform)
     }
 }
 
@@ -218,10 +201,9 @@ pub struct Population {
     pub crossover_rate: f64,
     pub mutation_rate: f64,
     pub n_genes_per_organism: usize,
-    pub random_gene_selector: Mutex<RandomIntGenerator>,
-    // pub random_organism_selector: Arc<Mutex<RandomIntGenerator>>,
-    // pub random_mutate_selector: Arc<Mutex<RandomFloatGenerator>>,
-    // pub organism_vec: OrganismVec,
+    pub random_gene_selector: Arc<Mutex<RandomIntGenerator>>,
+    pub random_organism_selector: Arc<Mutex<RandomIntGenerator>>,
+    pub organism_vec: OrganismVec,
 }
 
 impl Population {
@@ -232,67 +214,66 @@ impl Population {
             crossover_rate,
             mutation_rate,
             n_genes_per_organism: 0,
-            random_gene_selector: Mutex::new(RandomIntGenerator::new()),
-            // random_organism_selector: Arc::new(Mutex::new(RandomIntGenerator::with_range(
-            //     0,
-            //     n_organisms_in_population - 1,
-            // ))),
-            // random_mutate_selector: Arc::new(Mutex::new(RandomFloatGenerator::new())),
-            // organism_vec: Vec::new(),
+            random_gene_selector: Arc::new(Mutex::new(RandomIntGenerator::new())),
+            random_organism_selector: Arc::new(Mutex::new(RandomIntGenerator::with_range(
+                0,
+                n_organisms_in_population - 1,
+            ))),
+            organism_vec: Vec::new(),
         }
     }
 
     pub fn reset(&mut self, n_genes_per_organism: usize) {
-        // self.n_genes_per_organism = n_genes_per_organism;
-        // self.random_gene_selector
-        //     .lock()
-        //     .unwrap()
-        //     .set_range(0, n_genes_per_organism - 1);
-        // self.create_random_population();
+        self.n_genes_per_organism = n_genes_per_organism;
+        self.random_gene_selector
+            .lock()
+            .unwrap()
+            .set_range(0, n_genes_per_organism - 1);
+        self.create_random_population();
     }
 
     pub fn next_generation(&mut self) {
-        // let mut new_generation_vec = Vec::new();
-        // let mut n_mutations = 0;
-        // for _ in 0..self.n_organisms_in_population / 2 {
-        //     let crossover_rate = self.crossover_rate;
-        //     let mutation_rate = self.mutation_rate;
-        //     let mut pair = self.select_pair_tournament(2);
-        //     if self.random_mutate_selector.lock().unwrap().get_normalized_random() < crossover_rate {
-        //         // self.crossover(&mut pair);
-        //         let cross_idx = pair.a.get_random_crossover_point() ;
-        //         for i in cross_idx..pair.a.gene_vec.len() {
-        //             std::mem::swap(&mut pair.a.gene_vec[i], &mut pair.b.gene_vec[i]);
-        //         }
-        //     }
-        //     if self.random_mutate_selector.lock().unwrap().get_normalized_random() < mutation_rate {
-        //         pair.a.mutate();
-        //         n_mutations += 1;
-        //     }
-        //     if self.random_mutate_selector.lock().unwrap().get_normalized_random() < mutation_rate {
-        //         pair.b.mutate();
-        //         n_mutations += 1;
-        //     }
-        //     new_generation_vec.push(pair.a);
-        //     new_generation_vec.push(pair.b);
-        // }
-        // assert_eq!(
-        //     new_generation_vec.len(),
-        //     self.n_organisms_in_population
-        // );
-        // self.organism_vec = new_generation_vec;
+        let mut new_generation_vec = Vec::new();
+        let mut n_mutations = 0;
+        for _ in 0..self.n_organisms_in_population / 2 {
+            let crossover_rate = self.crossover_rate;
+            let mutation_rate = self.mutation_rate;
+            let mut pair = self.select_pair_tournament(2);
+            if RandomFloatGenerator::get_normalized_random() < crossover_rate {
+                // self.crossover(&mut pair);
+                let cross_idx = pair.a.get_random_crossover_point() ;
+                for i in cross_idx..pair.a.gene_vec.len() {
+                    std::mem::swap(&mut pair.a.gene_vec[i], &mut pair.b.gene_vec[i]);
+                }
+            }
+            if RandomFloatGenerator::get_normalized_random() < mutation_rate {
+                pair.a.mutate();
+                n_mutations += 1;
+            }
+            if RandomFloatGenerator::get_normalized_random() < mutation_rate {
+                pair.b.mutate();
+                n_mutations += 1;
+            }
+            new_generation_vec.push(pair.a);
+            new_generation_vec.push(pair.b);
+        }
+        assert_eq!(
+            new_generation_vec.len(),
+            self.n_organisms_in_population
+        );
+        self.organism_vec = new_generation_vec;
     }
 
     pub fn create_random_population(&mut self) {
-        // self.organism_vec.clear();
-        // for _ in 0..self.n_organisms_in_population {
-        //     let mut organism = Organism::new(
-        //         self.n_genes_per_organism,
-        //         Arc::clone(&self.random_gene_selector),
-        //     );
-        //     organism.create_random();
-        //     self.organism_vec.push(organism);
-        // }
+        self.organism_vec.clear();
+        for _ in 0..self.n_organisms_in_population {
+            let mut organism = Organism::new(
+                self.n_genes_per_organism,
+                Arc::clone(&self.random_gene_selector),
+            );
+            organism.create_random();
+            self.organism_vec.push(organism);
+        }
     }
 
     // pub fn crossover(&mut self, pair: &mut OrganismPair) {
@@ -302,68 +283,68 @@ impl Population {
     //     }
     // }
 
-//     pub fn select_pair_tournament(&mut self, n_candidates: usize) -> OrganismPair {
-//         let organism_a_idx = self.tournament_select(n_candidates);
-//         loop {
-//             let organism_b_idx = self.tournament_select(n_candidates);
-//             if organism_a_idx != organism_b_idx {
-//                 return OrganismPair::new(
-//                     self.organism_vec[organism_a_idx ].clone(),
-//                     self.organism_vec[organism_b_idx ].clone(),
-//                 );
-//             }
-//         }
-//     }
-//
-//     // A tournament in a genetic algorithm is a method of selection used to choose an individual
-//     // from a population. The idea is to select a few individuals at random from the population, and
-//     // then choose the best out of that small group.
-//     //
-//     // Here's how it works:
-//     //
-//     // 1. Decide on the tournament size. This is the number of individuals that will be randomly
-//     // selected from the population for the tournament.
-//     //
-//     // 2. Randomly select individuals from the population until you have enough to fill the
-//     // tournament.
-//     //
-//     // 3. Compare the fitness of all the individuals in the tournament, and select the one with the
-//     // best fitness.
-//     //
-//     // This process is repeated to select multiple individuals. The selected individuals are
-//     // typically used for crossover and mutation to form the next generation of the population.
-//     //
-//     // In the context of the provided code, the `tournament_select` function implements a tournament
-//     // selection. It takes `n_candidates` as a parameter, which is the tournament size. It then
-//     // selects `n_candidates` organisms from the population, compares their fitness (in this case,
-//     // the completed route cost), and returns the index of the organism with the best fitness.
-//     pub fn tournament_select(&self, n_candidates: usize) -> OrganismIdx {
-//         let mut best_organism_idx = usize::MAX;
-//         let mut lowest_completed_route_cost = usize::MAX;
-//         let mut n_highest_completed_routes = 0;
-//
-//         for _ in 0..n_candidates {
-//             let organism_idx = self
-//                 .random_organism_selector
-//                 .lock()
-//                 .unwrap()
-//                 .get_random_int();
-//
-//             let organism = &self.organism_vec[organism_idx ];
-//
-//             let has_more_completed_routes =
-//                 organism.n_completed_routes > n_highest_completed_routes;
-//
-//             let has_equal_routes_and_lower_cost = organism.n_completed_routes
-//                 == n_highest_completed_routes
-//                 && organism.completed_route_cost < lowest_completed_route_cost;
-//
-//             if has_more_completed_routes || has_equal_routes_and_lower_cost {
-//                 best_organism_idx = organism_idx;
-//                 lowest_completed_route_cost = organism.completed_route_cost;
-//                 n_highest_completed_routes = organism.n_completed_routes;
-//             }
-//         }
-//         best_organism_idx
-//     }
+    pub fn select_pair_tournament(&mut self, n_candidates: usize) -> OrganismPair {
+        let organism_a_idx = self.tournament_select(n_candidates);
+        loop {
+            let organism_b_idx = self.tournament_select(n_candidates);
+            if organism_a_idx != organism_b_idx {
+                return OrganismPair::new(
+                    self.organism_vec[organism_a_idx ].clone(),
+                    self.organism_vec[organism_b_idx ].clone(),
+                );
+            }
+        }
+    }
+
+    // A tournament in a genetic algorithm is a method of selection used to choose an individual
+    // from a population. The idea is to select a few individuals at random from the population, and
+    // then choose the best out of that small group.
+    //
+    // Here's how it works:
+    //
+    // 1. Decide on the tournament size. This is the number of individuals that will be randomly
+    // selected from the population for the tournament.
+    //
+    // 2. Randomly select individuals from the population until you have enough to fill the
+    // tournament.
+    //
+    // 3. Compare the fitness of all the individuals in the tournament, and select the one with the
+    // best fitness.
+    //
+    // This process is repeated to select multiple individuals. The selected individuals are
+    // typically used for crossover and mutation to form the next generation of the population.
+    //
+    // In the context of the provided code, the `tournament_select` function implements a tournament
+    // selection. It takes `n_candidates` as a parameter, which is the tournament size. It then
+    // selects `n_candidates` organisms from the population, compares their fitness (in this case,
+    // the completed route cost), and returns the index of the organism with the best fitness.
+    pub fn tournament_select(&self, n_candidates: usize) -> OrganismIdx {
+        let mut best_organism_idx = usize::MAX;
+        let mut lowest_completed_route_cost = usize::MAX;
+        let mut n_highest_completed_routes = 0;
+
+        for _ in 0..n_candidates {
+            let organism_idx = self
+                .random_organism_selector
+                .lock()
+                .unwrap()
+                .get_random_int();
+
+            let organism = &self.organism_vec[organism_idx ];
+
+            let has_more_completed_routes =
+                organism.n_completed_routes > n_highest_completed_routes;
+
+            let has_equal_routes_and_lower_cost = organism.n_completed_routes
+                == n_highest_completed_routes
+                && organism.completed_route_cost < lowest_completed_route_cost;
+
+            if has_more_completed_routes || has_equal_routes_and_lower_cost {
+                best_organism_idx = organism_idx;
+                lowest_completed_route_cost = organism.completed_route_cost;
+                n_highest_completed_routes = organism.n_completed_routes;
+            }
+        }
+        best_organism_idx
+    }
 }

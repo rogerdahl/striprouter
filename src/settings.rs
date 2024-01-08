@@ -10,6 +10,7 @@ const DEFAULT_CUT_COST: usize = 4;
 // const DEFAULT_VIA_COST: usize = 1;
 // const DEFAULT_CUT_COST: usize = 100;
 
+#[derive(Clone)]
 pub struct Settings {
     pub wire_cost: usize,
     pub strip_cost: usize,

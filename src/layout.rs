@@ -102,7 +102,10 @@ impl Layout {
     // }
 
     pub fn copy(&mut self, other: &Self) {
+        self.circuit = other.circuit.clone();
+        self.settings = other.settings.clone();
         self.board = other.board.clone();
+
         self.cost = other.cost;
         self.n_completed_routes = other.n_completed_routes;
         self.n_failed_routes = other.n_failed_routes;

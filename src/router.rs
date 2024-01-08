@@ -1,7 +1,7 @@
 use crate::board::Board;
 use crate::layout::Layout;
 use crate::nets::Nets;
-use crate::thread_stop::ThreadStop;
+// use crate::thread_stop::ThreadStop;
 use crate::ucs::UniformCostSearch;
 use crate::via::{LayerStartEndVia, LayerVia, StartEndVia, ValidVia, Via, WireLayerVia};
 

@@ -41,6 +41,7 @@ impl UniformCostSearch {
         shortcut_end_via: Via,
     ) -> RouteStepVec {
         let end = start_end_via.end.clone_owned();
+        // TODO: shortcut_end_via is not actually used???????????????????????????????????
         let shortcut_end_via = Via::new(end.x, end.y);
         let found_route =
             self.find_costs(board, layout, nets, router, start_end_via, shortcut_end_via);

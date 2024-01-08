@@ -12,6 +12,7 @@ type PackageToPosMap = HashMap<String, PackageRelPosVec>;
 
 type DontCarePinIdxSet = HashSet<usize>;
 
+#[derive(Clone)]
 pub struct Component {
     pub package_name: String,
     pin0_abs_pos: Via,
@@ -35,6 +36,7 @@ type ComponentNameToComponentMap = HashMap<String, Component>;
 
 // Connections
 
+#[derive(Clone)]
 pub struct ConnectionPoint {
     pub component_name: String,
     pub pin_idx: usize,
@@ -49,6 +51,7 @@ impl ConnectionPoint {
     }
 }
 
+#[derive(Clone)]
 pub struct Connection {
     start: ConnectionPoint,
     end: ConnectionPoint,
@@ -72,6 +75,17 @@ pub struct Circuit {
     pub component_name_to_component_map: ComponentNameToComponentMap,
     pub connection_vec: ConnectionVec,
     pub parser_error_vec: StringVec,
+}
+
+impl Clone for Circuit {
+    fn clone(&self) -> Self {
+        Self {
+            package_to_pos_map: self.package_to_pos_map.clone(),
+            component_name_to_component_map: self.component_name_to_component_map.clone(),
+            connection_vec: self.connection_vec.clone(),
+            parser_error_vec: self.parser_error_vec.clone(),
+        }
+    }
 }
 
 impl Circuit {
