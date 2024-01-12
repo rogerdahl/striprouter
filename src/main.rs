@@ -20,16 +20,6 @@ mod ui;
 mod util;
 mod via;
 
-// // Equivalent of #include <algorithm>, <chrono>, <climits>, <cstdio>, <ctime>,
-// // <iostream>, <mutex>, <string>, <thread>, <vector>
-// // Equivalent of using namespace std::chrono_literals; use std::time::Duration;
-// use std::thread;
-// use std::sync::{Arc, Mutex};
-// use std::cmp;
-// use std::io::{self, Write};
-// use std::vec::Vec;
-// use std::string::String;
-
 static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
 
 use crate::util::Timer;
@@ -56,7 +46,7 @@ use rand::Rng;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([500.0, 1000.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 800.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -79,8 +69,6 @@ struct MyApp {
     current_layout: Arc<Mutex<Layout>>,
     best_layout: Arc<Mutex<Layout>>,
     router_control: RouterControl,
-    zoom: f32,
-
     counter: Arc<AtomicUsize>,
     start: Instant,
 
@@ -91,8 +79,6 @@ struct MyApp {
 //     fn new(cc: &eframe::CreationContext<'_>) -> Self {
 //         setup_custom_fonts(&cc.egui_ctx);
 //         Self {
-//             name: "Arthur".to_owned(),
-//             age: 42,
 //         }
 //     }
 // }
@@ -134,7 +120,6 @@ impl Default for MyApp {
             current_layout,
             best_layout,
             router_control,
-            zoom: 25.0,
             // router_stop_signal: thread_stop,
             counter: counter.clone(),
             start: Instant::now(),
@@ -144,7 +129,6 @@ impl Default for MyApp {
 }
 
 impl eframe::App for MyApp {
-    // fn setup(&mut self, ctx: &egui::Context) {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Exit if the Escape key is pressed
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -163,7 +147,7 @@ impl eframe::App for MyApp {
 
 
             // let top_left = self.to_pos(ui.min_rect().left_top());
-            let mut render = Render::new(self.zoom);
+            let mut render = Render::new(self.controls.zoom);
             render.start_render(ctx);
 
             // let pos = ui.input().pointer.screen_pos();
