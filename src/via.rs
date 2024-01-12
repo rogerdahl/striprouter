@@ -24,17 +24,11 @@ pub fn via_to_str(v: &Via) -> String {
 }
 
 pub fn via_add_offset(v: &Via, offset: &OffsetVia) -> Via {
-    Via::new(
-        (v.x as isize + offset.x) as usize,
-        (v.y as isize + offset.y) as usize,
-    )
+    Via::new((v.x as isize + offset.x) as usize, (v.y as isize + offset.y) as usize)
 }
 
 pub fn via_from_offset(v: &OffsetVia) -> Via {
-    Via::new(
-        v.x as usize,
-        v.y as usize,
-    )
+    Via::new(v.x as usize, v.y as usize)
 }
 
 pub type OffsetVia = Vector2<isize>;
@@ -58,10 +52,7 @@ impl ValidVia {
     }
 
     pub fn from_via(via: Via) -> Self {
-        Self {
-            via,
-            is_valid: true,
-        }
+        Self { via, is_valid: true }
     }
 }
 

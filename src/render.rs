@@ -137,13 +137,7 @@ impl Render {
         }
     }
 
-    pub fn draw_strip_sections(
-        &self,
-        ui: &mut Ui,
-        layout: &Layout,
-        mouse_net: &Vec<Via>,
-        is_mouse_on_net: bool,
-    ) {
+    pub fn draw_strip_sections(&self, ui: &mut Ui, layout: &Layout, mouse_net: &Vec<Via>, is_mouse_on_net: bool) {
         // Routes
         // Draw strips and wires separately so that wires are always on top.
         // Strips
@@ -160,14 +154,8 @@ impl Render {
                     if y1 > y2 {
                         std::mem::swap(&mut y1, &mut y2);
                     }
-                    let start1 = Pos::new(
-                        start_end_via.start.x as f32 - CUT_WIDTH / 2.0,
-                        y1 as f32 - 0.40,
-                    );
-                    let end1 = Pos::new(
-                        start_end_via.start.x as f32 + CUT_WIDTH / 2.0,
-                        y2 as f32 + 0.40,
-                    );
+                    let start1 = Pos::new(start_end_via.start.x as f32 - CUT_WIDTH / 2.0, y1 as f32 - 0.40);
+                    let end1 = Pos::new(start_end_via.start.x as f32 + CUT_WIDTH / 2.0, y2 as f32 + 0.40);
                     let mut color;
                     if is_mouse_on_net && !mouse_net.contains(&section.start.via) {
                         color = self.strip_dimmed_color;
@@ -189,13 +177,7 @@ impl Render {
         }
     }
 
-    pub fn draw_wire_sections(
-        &self,
-        ui: &mut Ui,
-        layout: &Layout,
-        mouse_net: &Vec<Via>,
-        is_mouse_on_net: bool,
-    ) {
+    pub fn draw_wire_sections(&self, ui: &mut Ui, layout: &Layout, mouse_net: &Vec<Via>, is_mouse_on_net: bool) {
         for route_section_vec in &layout.route_vec {
             for section in route_section_vec {
                 let start = &section.start.via;
@@ -219,12 +201,7 @@ impl Render {
                         CONNECTION_WIDTH,
                         &color,
                     );
-                    self.draw_filled_circle(
-                        ui,
-                        section.start.via.cast::<f32>(),
-                        VIA_RADIUS,
-                        &color,
-                    );
+                    self.draw_filled_circle(ui, section.start.via.cast::<f32>(), VIA_RADIUS, &color);
                     self.draw_filled_circle(ui, section.end.via.cast::<f32>(), VIA_RADIUS, &color);
                 }
             }
@@ -249,9 +226,7 @@ impl Render {
     pub fn draw_components(&self, ui: &mut Ui, layout: &Layout) {
         for (component_name, component) in &layout.circuit.component_name_to_component_map {
             // Footprint
-            let footprint = layout
-                .circuit
-                .calc_component_footprint(component_name.to_owned());
+            let footprint = layout.circuit.calc_component_footprint(component_name.to_owned());
             let start = footprint.start.cast::<f32>() - Pos::new(0.5, 0.5);
             let end = footprint.end.cast::<f32>() + Pos::new(0.5, 0.5);
             self.draw_filled_rectangle(ui, start, end, &self.component_color);
@@ -276,10 +251,7 @@ impl Render {
                 pin_idx += 1;
             }
             // Name label
-            let txt_center_b = Pos::new(
-                start.x + (end.x - start.x) / 2.0,
-                start.y + (end.y - start.y) / 2.0,
-            );
+            let txt_center_b = Pos::new(start.x + (end.x - start.x) / 2.0, start.y + (end.y - start.y) / 2.0);
             self.draw_board_text(ui, txt_center_b, component_name, &self.component_name_color);
         }
     }
@@ -295,33 +267,15 @@ impl Render {
                 // Within the routed set
                 if routed_con_vec[i] {
                     if !show_only_failed {
-                        self.draw_thick_line(
-                            ui,
-                            *start,
-                            *end,
-                            RATS_NEST_WIRE_WIDTH,
-                            &self.rats_nest_success_color,
-                        );
+                        self.draw_thick_line(ui, *start, *end, RATS_NEST_WIRE_WIDTH, &self.rats_nest_success_color);
                     }
                 } else {
-                    self.draw_thick_line(
-                        ui,
-                        *start,
-                        *end,
-                        RATS_NEST_WIRE_WIDTH,
-                        &self.rats_nest_failed_color,
-                    );
+                    self.draw_thick_line(ui, *start, *end, RATS_NEST_WIRE_WIDTH, &self.rats_nest_failed_color);
                 }
             } else {
                 // Outside the routed set
                 if !show_only_failed {
-                    self.draw_thick_line(
-                        ui,
-                        *start,
-                        *end,
-                        RATS_NEST_WIRE_WIDTH,
-                        &self.rats_nest_unrouted_color,
-                    );
+                    self.draw_thick_line(ui, *start, *end, RATS_NEST_WIRE_WIDTH, &self.rats_nest_unrouted_color);
                 }
             }
             i += 1;
@@ -332,34 +286,10 @@ impl Render {
         let start = Pos::new(0.0, 0.0); // - 0.5;
         let end = Pos::new(layout.board.w as f32 - 1.0, layout.board.h as f32 - 1.0); // + 0.5;
         let radius = 0.2;
-        self.draw_thick_line(
-            ui,
-            start,
-            Pos::new(end.x, start.y),
-            radius,
-            &self.border_color,
-        );
-        self.draw_thick_line(
-            ui,
-            start,
-            Pos::new(start.x, end.y),
-            radius,
-            &self.border_color,
-        );
-        self.draw_thick_line(
-            ui,
-            Pos::new(end.x, start.y),
-            end,
-            radius,
-            &self.border_color,
-        );
-        self.draw_thick_line(
-            ui,
-            Pos::new(start.x, end.y),
-            end,
-            radius,
-            &self.border_color,
-        );
+        self.draw_thick_line(ui, start, Pos::new(end.x, start.y), radius, &self.border_color);
+        self.draw_thick_line(ui, start, Pos::new(start.x, end.y), radius, &self.border_color);
+        self.draw_thick_line(ui, Pos::new(end.x, start.y), end, radius, &self.border_color);
+        self.draw_thick_line(ui, Pos::new(start.x, end.y), end, radius, &self.border_color);
     }
 
     pub fn draw_diag(&self, ui: &mut Ui, layout: &Layout) {
@@ -611,21 +541,10 @@ impl Render {
 
     // Draw text on the board. The text is centered on the position, specified in board
     // coordinates.
-    pub fn draw_board_text(
-        &self,
-        ui: &mut Ui,
-        board_pos: Pos,
-        text: &str,
-        color: &Color32,
-    ) -> Rect {
+    pub fn draw_board_text(&self, ui: &mut Ui, board_pos: Pos, text: &str, color: &Color32) -> Rect {
         let pos = self.to_draw_pos2(ui, &board_pos);
-        ui.painter().text(
-            pos,
-            Align2::CENTER_CENTER,
-            text,
-            self.label_font_id.clone(),
-            *color,
-        )
+        ui.painter()
+            .text(pos, Align2::CENTER_CENTER, text, self.label_font_id.clone(), *color)
     }
 
     // Convert from position as used by egui, to position used by the rest of the app.
@@ -649,14 +568,11 @@ impl Render {
     }
 
     pub fn to_draw_pos(&self, ui: &mut Ui, screen_pos: &Pos) -> Pos {
-        screen_pos * self.zoom
-            + self.pos2_to_pos(ui.min_rect().left_top())
-            + self.board_screen_offset
+        screen_pos * self.zoom + self.pos2_to_pos(ui.min_rect().left_top()) + self.board_screen_offset
     }
 
     pub fn draw_to_board_pos(&self, ui: &mut Ui, screen_pos: &Pos) -> Pos {
-        (screen_pos - self.board_screen_offset - self.pos2_to_pos(ui.min_rect().left_top()))
-            / self.zoom
+        (screen_pos - self.board_screen_offset - self.pos2_to_pos(ui.min_rect().left_top())) / self.zoom
     }
 
     pub fn color(r: f32, g: f32, b: f32, a: f32) -> Color32 {

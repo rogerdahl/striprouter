@@ -63,10 +63,7 @@ pub struct GeneDependency {
 
 impl GeneDependency {
     pub fn new(gene: Gene, gene_dependency: Gene) -> Self {
-        Self {
-            gene,
-            gene_dependency,
-        }
+        Self { gene, gene_dependency }
     }
 }
 
@@ -108,14 +105,14 @@ impl Organism {
 
     pub fn mutate(&mut self) {
         let mut random_gene_selector = self.random_gene_selector.lock().unwrap();
-        let dependent_idx = random_gene_selector.get_random_int() ;
+        let dependent_idx = random_gene_selector.get_random_int();
         let dependency_idx = random_gene_selector.get_random_int();
         self.gene_vec[dependent_idx] = dependency_idx;
     }
 
     pub fn calc_connection_idx_vec(&self) -> GeneVec {
         let gene_vec = self.topo_sort();
-        assert_eq!(gene_vec.len(), self.n_genes );
+        assert_eq!(gene_vec.len(), self.n_genes);
         gene_vec
     }
 
@@ -135,7 +132,7 @@ impl Organism {
             .gene_vec
             .iter()
             .enumerate()
-            .map(|(i, &gene_idx)| GeneDependency::new(i , gene_idx))
+            .map(|(i, &gene_idx)| GeneDependency::new(i, gene_idx))
             .collect();
 
         gene_list.sort_by(|a, b| a.gene_dependency.cmp(&b.gene_dependency));
@@ -241,7 +238,7 @@ impl Population {
             let mut pair = self.select_pair_tournament(2);
             if RandomFloatGenerator::get_normalized_random() < crossover_rate {
                 // self.crossover(&mut pair);
-                let cross_idx = pair.a.get_random_crossover_point() ;
+                let cross_idx = pair.a.get_random_crossover_point();
                 for i in cross_idx..pair.a.gene_vec.len() {
                     std::mem::swap(&mut pair.a.gene_vec[i], &mut pair.b.gene_vec[i]);
                 }
@@ -257,20 +254,14 @@ impl Population {
             new_generation_vec.push(pair.a);
             new_generation_vec.push(pair.b);
         }
-        assert_eq!(
-            new_generation_vec.len(),
-            self.n_organisms_in_population
-        );
+        assert_eq!(new_generation_vec.len(), self.n_organisms_in_population);
         self.organism_vec = new_generation_vec;
     }
 
     pub fn create_random_population(&mut self) {
         self.organism_vec.clear();
         for _ in 0..self.n_organisms_in_population {
-            let mut organism = Organism::new(
-                self.n_genes_per_organism,
-                Arc::clone(&self.random_gene_selector),
-            );
+            let mut organism = Organism::new(self.n_genes_per_organism, Arc::clone(&self.random_gene_selector));
             organism.create_random();
             self.organism_vec.push(organism);
         }
@@ -289,8 +280,8 @@ impl Population {
             let organism_b_idx = self.tournament_select(n_candidates);
             if organism_a_idx != organism_b_idx {
                 return OrganismPair::new(
-                    self.organism_vec[organism_a_idx ].clone(),
-                    self.organism_vec[organism_b_idx ].clone(),
+                    self.organism_vec[organism_a_idx].clone(),
+                    self.organism_vec[organism_b_idx].clone(),
                 );
             }
         }
@@ -324,19 +315,13 @@ impl Population {
         let mut n_highest_completed_routes = 0;
 
         for _ in 0..n_candidates {
-            let organism_idx = self
-                .random_organism_selector
-                .lock()
-                .unwrap()
-                .get_random_int();
+            let organism_idx = self.random_organism_selector.lock().unwrap().get_random_int();
 
-            let organism = &self.organism_vec[organism_idx ];
+            let organism = &self.organism_vec[organism_idx];
 
-            let has_more_completed_routes =
-                organism.n_completed_routes > n_highest_completed_routes;
+            let has_more_completed_routes = organism.n_completed_routes > n_highest_completed_routes;
 
-            let has_equal_routes_and_lower_cost = organism.n_completed_routes
-                == n_highest_completed_routes
+            let has_equal_routes_and_lower_cost = organism.n_completed_routes == n_highest_completed_routes
                 && organism.completed_route_cost < lowest_completed_route_cost;
 
             if has_more_completed_routes || has_equal_routes_and_lower_cost {

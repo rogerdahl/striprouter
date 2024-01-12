@@ -1,7 +1,7 @@
+use crate::ga_core::{Organism, Population};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::vec::Vec;
-use crate::ga_core::{Organism, Population};
 
 type ConnectionIdx = usize;
 type ConnectionIdxVec = Vec<ConnectionIdx>;
@@ -62,12 +62,17 @@ impl GeneticAlgorithm {
     pub fn get_ordering(&self, ordering_idx: OrderingIdx) -> ConnectionIdxVec {
         assert_ne!(ordering_idx, usize::MAX); // Must wait and try reserve_ordering() again
         assert_ne!(self.n_connections_in_circuit, 0); // Must call reset() first
-        self.population.organism_vec[ordering_idx ].calc_connection_idx_vec()
+        self.population.organism_vec[ordering_idx].calc_connection_idx_vec()
     }
 
-    pub fn release_ordering(&mut self, ordering_idx: OrderingIdx, n_completed_routes: usize, completed_route_cost: usize) {
-        self.population.organism_vec[ordering_idx ].n_completed_routes = n_completed_routes;
-        self.population.organism_vec[ordering_idx ].completed_route_cost = completed_route_cost;
+    pub fn release_ordering(
+        &mut self,
+        ordering_idx: OrderingIdx,
+        n_completed_routes: usize,
+        completed_route_cost: usize,
+    ) {
+        self.population.organism_vec[ordering_idx].n_completed_routes = n_completed_routes;
+        self.population.organism_vec[ordering_idx].completed_route_cost = completed_route_cost;
         self.n_unprocessed_orderings -= 1;
     }
 

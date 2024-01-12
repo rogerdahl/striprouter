@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::usize;
 
-use crate::via::{OffsetVia, StartEndVia, Via, via_add_offset};
+use crate::via::{via_add_offset, OffsetVia, StartEndVia, Via};
 
 // Packages
 
@@ -109,39 +109,26 @@ impl Circuit {
                 .component_name_to_component_map
                 .get(&c.start.component_name)
                 .unwrap();
-            let end_component = self
-                .component_name_to_component_map
-                .get(&c.end.component_name)
-                .unwrap();
+            let end_component = self.component_name_to_component_map.get(&c.end.component_name).unwrap();
 
-            let start_rel_pin = self
-                .package_to_pos_map
-                .get(&start_component.package_name)
-                .unwrap()[c.start.pin_idx];
-            let end_rel_pin = self
-                .package_to_pos_map
-                .get(&end_component.package_name)
-                .unwrap()[c.end.pin_idx];
+            let start_rel_pin = self.package_to_pos_map.get(&start_component.package_name).unwrap()[c.start.pin_idx];
+            let end_rel_pin = self.package_to_pos_map.get(&end_component.package_name).unwrap()[c.end.pin_idx];
 
             // let start_abs_pin = start_rel_pin + OffsetVia::new(start_component.pin0_abs_pos.x as isize, start_component.pin0_abs_pos.y as isize);
             // let end_abs_pin = end_rel_pin + OffsetVia::new(end_component.pin0_abs_pos.x as isize, end_component.pin0_abs_pos.y as isize);
 
-            v.push(StartEndVia::new(via_add_offset(&start_component.pin0_abs_pos, &start_rel_pin), via_add_offset(&end_component.pin0_abs_pos, &end_rel_pin)));
+            v.push(StartEndVia::new(
+                via_add_offset(&start_component.pin0_abs_pos, &start_rel_pin),
+                via_add_offset(&end_component.pin0_abs_pos, &end_rel_pin),
+            ));
         }
         v
     }
 
     pub fn calc_component_footprint(&self, component_name: String) -> StartEndVia {
         let mut v = StartEndVia::new(Via::new(usize::MAX, usize::MAX), Via::new(0, 0));
-        let component = self
-            .component_name_to_component_map
-            .get(&component_name)
-            .unwrap();
-        for cc in self
-            .package_to_pos_map
-            .get(&component.package_name)
-            .unwrap()
-        {
+        let component = self.component_name_to_component_map.get(&component_name).unwrap();
+        for cc in self.package_to_pos_map.get(&component.package_name).unwrap() {
             let c = via_add_offset(&component.pin0_abs_pos, cc);
             if c.x < v.start.x {
                 v.start.x = c.x;
@@ -165,11 +152,7 @@ impl Circuit {
             .component_name_to_component_map
             .get(component_name.as_str())
             .unwrap();
-        for cc in self
-            .package_to_pos_map
-            .get(&component.package_name)
-            .unwrap()
-        {
+        for cc in self.package_to_pos_map.get(&component.package_name).unwrap() {
             let c = via_add_offset(&component.pin0_abs_pos, cc);
             v.push(c);
         }

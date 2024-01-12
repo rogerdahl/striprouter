@@ -1,14 +1,15 @@
 // use std::sync::Mutex;
 
 // For testing
-const DEFAULT_WIRE_COST: usize = 1;
-const DEFAULT_STRIP_COST: usize = 2;
-const DEFAULT_VIA_COST: usize = 3;
-const DEFAULT_CUT_COST: usize = 4;
-// const DEFAULT_WIRE_COST: usize = 10;
-// const DEFAULT_STRIP_COST: usize = 10;
-// const DEFAULT_VIA_COST: usize = 1;
-// const DEFAULT_CUT_COST: usize = 100;
+// const DEFAULT_WIRE_COST: usize = 1;
+// const DEFAULT_STRIP_COST: usize = 2;
+// const DEFAULT_VIA_COST: usize = 3;
+// const DEFAULT_CUT_COST: usize = 4;
+
+const DEFAULT_WIRE_COST: usize = 10;
+const DEFAULT_STRIP_COST: usize = 10;
+const DEFAULT_VIA_COST: usize = 1;
+const DEFAULT_CUT_COST: usize = 100;
 
 #[derive(Clone)]
 pub struct Settings {
@@ -30,4 +31,3 @@ impl Settings {
         }
     }
 }
-

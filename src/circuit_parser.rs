@@ -109,8 +109,7 @@ impl<'a> CircuitFileParser<'a> {
 
     fn parse_alias(&mut self, line: &str) -> Result<bool, String> {
         if let Some(captures) = ALIAS_RX.captures(line) {
-            self.aliases
-                .push((captures[1].to_string(), captures[2].to_string()));
+            self.aliases.push((captures[1].to_string(), captures[2].to_string()));
             return Ok(true);
         }
         Ok(false)
@@ -175,33 +174,18 @@ impl<'a> CircuitFileParser<'a> {
                 let package_name = captures[2].to_string();
                 let x = captures[3].parse::<isize>().unwrap();
                 let y = captures[4].parse::<isize>().unwrap();
-                if !self
-                    .layout
-                    .circuit
-                    .package_to_pos_map
-                    .contains_key(&package_name)
-                {
+                if !self.layout.circuit.package_to_pos_map.contains_key(&package_name) {
                     return Err(format!("Unknown package: {}", package_name));
                 }
                 let p = OffsetVia::new(x + self.offset.x, y + self.offset.y);
                 let mut i = 0;
-                for o in self
-                    .layout
-                    .circuit
-                    .package_to_pos_map
-                    .get(&package_name)
-                    .unwrap()
-                {
+                for o in self.layout.circuit.package_to_pos_map.get(&package_name).unwrap() {
                     if p.x + o.x < 0
                         || p.x + o.x >= self.layout.board.w as isize
                         || p.y + o.y < 0
                         || p.y + o.y >= self.layout.board.h as isize
                     {
-                        return Err(format!(
-                            "Component pin outside of board: {}.{}",
-                            component_name,
-                            i + 1
-                        ));
+                        return Err(format!("Component pin outside of board: {}.{}", component_name, i + 1));
                     }
                     i += 1;
                 }
@@ -244,9 +228,7 @@ impl<'a> CircuitFileParser<'a> {
                                     package_pos_vec.len()
                                 ));
                             }
-                            component
-                                .dont_care_pin_idx_set
-                                .insert(dont_care_pin_idx - 1);
+                            component.dont_care_pin_idx_set.insert(dont_care_pin_idx - 1);
                         }
                         return Ok(true);
                     }
@@ -260,21 +242,12 @@ impl<'a> CircuitFileParser<'a> {
     fn parse_connection(&mut self, line: &str) -> Result<bool, String> {
         return match CONNECTION_FULL_RX.captures(line) {
             Some(captures) => {
-                let start = ConnectionPoint::new(
-                    captures[1].to_string(),
-                    captures[2].parse::<usize>().unwrap() - 1,
-                );
-                let end = ConnectionPoint::new(
-                    captures[3].to_string(),
-                    captures[4].parse::<usize>().unwrap() - 1,
-                );
+                let start = ConnectionPoint::new(captures[1].to_string(), captures[2].parse::<usize>().unwrap() - 1);
+                let end = ConnectionPoint::new(captures[3].to_string(), captures[4].parse::<usize>().unwrap() - 1);
                 self.check_connection_point(&start)?;
                 self.check_connection_point(&end)?;
                 if start.component_name != end.component_name || start.pin_idx != end.pin_idx {
-                    self.layout
-                        .circuit
-                        .connection_vec
-                        .push(Connection::new(start, end));
+                    self.layout.circuit.connection_vec.push(Connection::new(start, end));
                 }
                 Ok(true)
             }
@@ -305,10 +278,7 @@ impl<'a> CircuitFileParser<'a> {
                         package_pos_vec.len()
                     ));
                 }
-                if component
-                    .dont_care_pin_idx_set
-                    .contains(&connection_point.pin_idx)
-                {
+                if component.dont_care_pin_idx_set.contains(&connection_point.pin_idx) {
                     return Err(format!(
                         "Invalid pin number for {}.{}. Pin has been set as \"Don't Care\"",
                         connection_point.component_name, pin_idx_1_base
@@ -316,10 +286,7 @@ impl<'a> CircuitFileParser<'a> {
                 }
                 Ok(())
             }
-            None => Err(format!(
-                "Unknown component: {}",
-                connection_point.component_name
-            )),
+            None => Err(format!("Unknown component: {}", connection_point.component_name)),
         }
     }
 }

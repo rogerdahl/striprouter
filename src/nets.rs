@@ -51,12 +51,7 @@ impl Nets {
         }
     }
 
-    pub fn connect_route(
-        &mut self,
-        board: Board,
-        layout: &mut Layout,
-        route_step_vec: &RouteStepVec,
-    ) {
+    pub fn connect_route(&mut self, board: Board, layout: &mut Layout, route_step_vec: &RouteStepVec) {
         let mut first = true;
         for c in route_step_vec {
             if first {
@@ -82,13 +77,7 @@ impl Nets {
         }
     }
 
-    pub fn is_connected(
-        &self,
-        board: Board,
-        layout: &mut Layout,
-        current_via: Via,
-        target_via: Via,
-    ) -> bool {
+    pub fn is_connected(&self, board: Board, layout: &mut Layout, current_via: Via, target_via: Via) -> bool {
         let via_set_idx = self.set_idx_vec[board.idx(current_via)];
         if via_set_idx == usize::MAX {
             return false;

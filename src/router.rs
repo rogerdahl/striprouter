@@ -63,13 +63,10 @@ impl Router {
         let mut is_aborted = false;
         let start_time = Instant::now();
         let connection_via_vec = layout.circuit.gen_connection_via_vec();
-        layout
-            .route_status_vec
-            .resize(connection_via_vec.len(), false);
+        layout.route_status_vec.resize(connection_via_vec.len(), false);
         for connection_idx in connection_idx_vec.clone() {
             let start_end_via = connection_via_vec[connection_idx];
-            let route_was_found =
-                self.find_complete_route(board, layout, nets, start_end_via, shortcut_end_via);
+            let route_was_found = self.find_complete_route(board, layout, nets, start_end_via, shortcut_end_via);
             layout.route_status_vec[connection_idx] = route_was_found;
             // if self.thread_stop.is_stopped() {
             //     is_aborted = true;
@@ -122,8 +119,7 @@ impl Router {
         shortcut_end_via: Via,
     ) -> bool {
         let mut ucs = UniformCostSearch::new(board);
-        let route_step_vec =
-            ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via, shortcut_end_via);
+        let route_step_vec = ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via, shortcut_end_via);
         if route_step_vec.is_empty() {
             return false;
         }
@@ -171,8 +167,7 @@ impl Router {
                 let prev_via = Via::new(x, y - 1);
                 let cur_via = Via::new(x, y);
                 let is_connected = nets.is_connected(board, layout, cur_via, prev_via);
-                let is_in_other_net =
-                    nets.has_connection(board, layout, cur_via) && !is_connected;
+                let is_in_other_net = nets.has_connection(board, layout, cur_via) && !is_connected;
                 let is_other_pin = self.is_any_pin(cur_via) && !is_connected;
                 if is_in_other_net || is_other_pin {
                     if is_used {
@@ -202,9 +197,7 @@ impl Router {
                 return false;
             }
         } else {
-            if nets.has_connection(board, layout, via.via)
-                && !nets.is_connected(board, layout, via.via, start_via)
-            {
+            if nets.has_connection(board, layout, via.via) && !nets.is_connected(board, layout, via.via, start_via) {
                 return false;
             }
             if self.is_any_pin(via.via) {
@@ -227,9 +220,7 @@ impl Router {
 
     fn block_component_footprints(&mut self, board: Board, layout: &mut Layout) {
         for (component_name, _) in &layout.circuit.component_name_to_component_map {
-            let footprint = layout
-                .circuit
-                .calc_component_footprint(component_name.to_string());
+            let footprint = layout.circuit.calc_component_footprint(component_name.to_string());
             for y in footprint.start.y..=footprint.end.y {
                 for x in footprint.start.x..=footprint.end.x {
                     self.block(board, Via::new(x, y));

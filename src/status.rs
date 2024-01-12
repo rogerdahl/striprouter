@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use lazy_static::lazy_static;
+use std::sync::Mutex;
 
 lazy_static! {
     pub static ref STATUS_MUTEX: Mutex<()> = Mutex::new(());
@@ -16,4 +16,3 @@ impl Status {
         }
     }
 }
-

@@ -1,11 +1,11 @@
 use crate::ga_interface::GeneticAlgorithm;
 use crate::layout::Layout;
 // use crate::thread_stop::ThreadStop;
-use std::sync::{Arc, Mutex, Condvar};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread;
-use crate::{nets, router, settings};
 use crate::via::Via;
+use crate::{nets, router, settings};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
 
 pub(crate) struct RouterThread {
     input_layout: Arc<Mutex<Layout>>,
@@ -67,8 +67,7 @@ impl RouterThread {
                 ordering_idx = self.genetic_algorithm.lock().unwrap().reserve_ordering();
                 if ordering_idx != usize::MAX {
                     break;
-                }
-                else {
+                } else {
                     // println!("thread_idx={} waiting", self.thread_idx);
                     thread::sleep(std::time::Duration::from_millis(10));
                 }
@@ -103,7 +102,9 @@ impl RouterThread {
 
             self.genetic_algorithm.lock().unwrap().release_ordering(
                 ordering_idx,
-                thread_layout.n_completed_routes, thread_layout.cost);
+                thread_layout.n_completed_routes,
+                thread_layout.cost,
+            );
 
             let mut input_layout_guard = self.input_layout.lock().unwrap();
             *input_layout_guard = thread_layout.clone();
@@ -114,7 +115,7 @@ impl RouterThread {
             let has_better_score = thread_layout.cost < best_layout_guard.cost;
             // let is_based_on_other_layout = !best_layout_guard.is_based_on(&thread_layout);
             if has_more_completed_routes || (has_equal_completed_routes && has_better_score)
-                // || is_based_on_other_layout
+            // || is_based_on_other_layout
             {
                 *best_layout_guard = thread_layout.clone();
             }

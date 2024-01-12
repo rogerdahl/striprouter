@@ -5,15 +5,14 @@
 // the mutex was not locked, so it returns false. If the lock fails, it means the mutex
 // was already locked, so it returns true.
 
-use std::sync::Mutex;
-use std::time::Instant;
-use std::collections::HashSet;
 use crate::board::Board;
 use crate::circuit::Circuit;
 use crate::settings::Settings;
+use std::collections::HashSet;
+use std::sync::Mutex;
+use std::time::Instant;
 
-use crate::via::{CostVia, CostViaVec, WireLayerViaVec, LayerStartEndVia, LayerVia, ValidVia, Via};
-
+use crate::via::{CostVia, CostViaVec, LayerStartEndVia, LayerVia, ValidVia, Via, WireLayerViaVec};
 
 pub type RouteStepVec = Vec<LayerVia>;
 pub type RouteSectionVec = Vec<LayerStartEndVia>;
@@ -21,7 +20,6 @@ pub type RouteVec = Vec<RouteSectionVec>;
 pub type StringVec = Vec<String>;
 pub type RouteStatusVec = Vec<bool>;
 pub type StripCutVec = Vec<Via>;
-
 
 // Nets
 pub type ViaSet = HashSet<Via>;
@@ -70,7 +68,6 @@ impl Layout {
 
             is_ready_for_eval: false,
             // has_error: false,
-
             layout_info_vec: StringVec::new(),
             route_vec: RouteVec::new(),
             strip_cut_vec: StripCutVec::new(),

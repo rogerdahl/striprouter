@@ -1,13 +1,13 @@
 use crate::layout::{Layout, RouteStepVec};
 use crate::nets::Nets;
 use crate::router::Router;
-use crate::via::{CostVia, LayerCostVia, LayerVia, StartEndVia, ValidVia, Via, via_to_str};
+use crate::via::{via_to_str, CostVia, LayerCostVia, LayerVia, StartEndVia, ValidVia, Via};
 use std::sync::Mutex;
 
 use crate::board::Board;
+use crate::settings::Settings;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashSet};
-use crate::settings::Settings;
 
 type FrontierPri = BinaryHeap<Reverse<LayerCostVia>>;
 type FrontierSet = HashSet<LayerVia>;
@@ -43,8 +43,7 @@ impl UniformCostSearch {
         let end = start_end_via.end.clone_owned();
         // TODO: shortcut_end_via is not actually used???????????????????????????????????
         let shortcut_end_via = Via::new(end.x, end.y);
-        let found_route =
-            self.find_costs(board, layout, nets, router, start_end_via, shortcut_end_via);
+        let found_route = self.find_costs(board, layout, nets, router, start_end_via, shortcut_end_via);
         // self.dump_costs(board);
         return if found_route {
             self.backtrace_lowest_cost_route(
@@ -101,23 +100,99 @@ impl UniformCostSearch {
             self.explored_set.insert(layer_node);
             if layer_node.is_wire_layer {
                 if layer_node.via.x > 0 {
-                    self.explore_neighbour(board, layout, nets, router, layer_node, self.step_left(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.wire_cost);
+                    self.explore_neighbour(
+                        board,
+                        layout,
+                        nets,
+                        router,
+                        layer_node,
+                        self.step_left(layer_node),
+                        start_end_via,
+                        shortcut_end_via,
+                        cur_cost,
+                        layout.settings.wire_cost,
+                    );
                 }
                 if layer_node.via.x < board.w - 1 {
-                    self.explore_neighbour(board, layout, nets, router, layer_node, self.step_right(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.wire_cost);
+                    self.explore_neighbour(
+                        board,
+                        layout,
+                        nets,
+                        router,
+                        layer_node,
+                        self.step_right(layer_node),
+                        start_end_via,
+                        shortcut_end_via,
+                        cur_cost,
+                        layout.settings.wire_cost,
+                    );
                 }
-                self.explore_neighbour(board, layout, nets, router, layer_node, self.step_to_strip(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.via_cost);
+                self.explore_neighbour(
+                    board,
+                    layout,
+                    nets,
+                    router,
+                    layer_node,
+                    self.step_to_strip(layer_node),
+                    start_end_via,
+                    shortcut_end_via,
+                    cur_cost,
+                    layout.settings.via_cost,
+                );
             } else {
                 if layer_node.via.y > 0 {
-                    self.explore_neighbour(board, layout, nets, router, layer_node, self.step_up(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.strip_cost);
+                    self.explore_neighbour(
+                        board,
+                        layout,
+                        nets,
+                        router,
+                        layer_node,
+                        self.step_up(layer_node),
+                        start_end_via,
+                        shortcut_end_via,
+                        cur_cost,
+                        layout.settings.strip_cost,
+                    );
                 }
                 if layer_node.via.y < board.h - 1 {
-                    self.explore_neighbour(board, layout, nets, router, layer_node, self.step_down(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.strip_cost);
+                    self.explore_neighbour(
+                        board,
+                        layout,
+                        nets,
+                        router,
+                        layer_node,
+                        self.step_down(layer_node),
+                        start_end_via,
+                        shortcut_end_via,
+                        cur_cost,
+                        layout.settings.strip_cost,
+                    );
                 }
-                self.explore_neighbour(board, layout, nets, router, layer_node, self.step_to_wire(layer_node), start_end_via, shortcut_end_via, cur_cost, layout.settings.via_cost);
+                self.explore_neighbour(
+                    board,
+                    layout,
+                    nets,
+                    router,
+                    layer_node,
+                    self.step_to_wire(layer_node),
+                    start_end_via,
+                    shortcut_end_via,
+                    cur_cost,
+                    layout.settings.via_cost,
+                );
                 let wire_to_via = router.wire_to_via_ref(board, layer_node.via);
                 if wire_to_via.is_valid {
-                    self.explore_frontier(board, layout, layer_node, LayerVia { via: wire_to_via.via, is_wire_layer: false }, cur_cost, layout.settings.wire_cost);
+                    self.explore_frontier(
+                        board,
+                        layout,
+                        layer_node,
+                        LayerVia {
+                            via: wire_to_via.via,
+                            is_wire_layer: false,
+                        },
+                        cur_cost,
+                        layout.settings.wire_cost,
+                    );
                 }
             }
         }
@@ -137,14 +212,7 @@ impl UniformCostSearch {
         node_cost: usize,
         step_to_n_cost: usize,
     ) {
-        if router.is_available(
-            board,
-            layout,
-            nets,
-            n,
-            start_end_via.start,
-            shortcut_end_via,
-        ) {
+        if router.is_available(board, layout, nets, n, start_end_via.start, shortcut_end_via) {
             self.explore_frontier(board, layout, node, n, node_cost, step_to_n_cost);
         }
     }
