@@ -60,6 +60,8 @@ If a good layout is found, the solution can be printed in two separate layers, w
     Types of information in the `.circuit` file:
 
     * `Board` The size of the stripboard, specified by number of vias (through holes) horizontally and vertically, as seen when the copper strips run vertically. The board must be large enough that the circuit and routes will fit but should not be larger than necessary, as search speed slows down when board size increases.
+  
+      We use stripboards with the strips oriented vertically so that components mounted horizontally get each pin connected to a separate strip.
 
     * `Package` Reusable pin layouts. Each pin is designated by a coordinate relative to pin 1, so pins can be in any order and relationship to each other.
 
@@ -97,6 +99,23 @@ If a good layout is found, the solution can be printed in two separate layers, w
 
 * After having done the cuts, fasten the wire sheet on the top of the board and tape it in place. Then poke wires through the paper and solder them in place as you go. As removing the paper from underneath the wires can be a bit finicky, I prefer to solder the wires with a bit of slack to them first, then remove the paper, then reheat one of the solder points for each wire, and pull the wire tight.
 
+### How to set costs
+
+The router uses costs to determine which routes are better than others. The costs can be adjusted in the UI, and are saved in the `.circuit` file.
+
+A stripboard has a grid of through holes spaced 0.1 inches apart. We call these holes vias. On the back of the board, the vias are connected vertically by prefabricated copper strips. Connections can then be made as needed by soldering wires between the strips. The wires are on the front of the board and poke through vias on each end in order to connect to the strips.
+
+- `strip cost`: This cost is incurred when using a section of strip that connects two adjacent (neighboring) vias. As the strips already exist, typically, the only cost to using them relates to the incurred electrical resistance and capacitance, as it increases with strip length. So this cost is typically set very low. If it's important to keep resistance and capacitance as low as possible, this cost may be set higher, which then guides the router towards alternatives that use more of the other resources, as described below.
+
+- `wire cost` and `via cost`: The `wire cost` is incurred when using a section of wire spanning two adjacent vias. This cost is typically set pretty low, since, if you're already doing a wire, it doesn't much matter how long it is. Wire connections also have a `via cost` at each end, where they poke through vias in order to connect to the strips.  `via cost` can be set pretty high, since that covers the cost of actually doing a wire connection, and soldering it on both sides.
+
+- `cut via cost` and `cut between cost`: A strip provides a continuous connection all the way from the top to the bottom of the board. In order to use a single strip as part of more than one route, the sections of strip that belong to each route must be disconnected from each other by cutting the strip between them. The `cut via cost` is incurred when cutting a strip at a via, while the `cut between cost` is incurred when cutting a strip between vias. If the pins from two different components reside on the same strip, and the two pins should not be connected, there is no choice but to make a cut between them, and so the cut will be made regardless of how high the costs are.  But in other cases, the router has a choice where it can either use a section of strip that is closer by making a cut, or it can use another strip that is farther away, and avoid the cut. Physically making the cuts is finicky, so these cost are usually set high. Making a cut at a via is easiest, since only the copper on the sides of the via has to be removed, while making a cut between vias is harder, as the full width of copper has to be removed, and there's nothing to guide the cutting tool. So `cut via cost` is typically set lower than `cut between cost`. Note, though, that cutting between vias leaves the vias on both sides of the cut available for routing, while cutting through a via makes it unavailable for routing. So setting the `cut via cost` higher than `cut between cost` can make for more compact routes (at the cost of harder cuts). Setting high cut costs will cause the router to quickly move routes farther out to the sides, where it can find unused strips that it doesn't have to cut.
+
+- `reuse cost`: Say you have 3 pins, A, B and C, where the circuit file specifies that A connects both to B and to C. Now consider that pin B is in the middle, between A and C. If the router has already connected A to B, and is looking for a route from A to C, it can create a separate connection from A to C, or it can connect to C by continuing on from B. The `reuse cost` specifies what the cost is for reusing the sections connecting A to B, when connecting to C. Reusing routes in this way is usually very beneficial, so this cost is set very low. However, if it's important to minimize electrical resistance and capacitance, it may be beneficial to guide the router towards direct routes instead, in which case this cost can be set higher.
+
+The values of the costs are all relative to each other. So a `wire cost` of 3 and a `strip cost` of 1 will cause the router to consider 3 sections of strip to be equivalent to one section of wire, and to consider 2 sections of strip to be better than 1 section of wire. The default costs are multiples of 10 in order to allow room for fine tuning the relative costs.
+
+When balancing the costs, think in terms of tradeoffs. Would you rather have fewer cuts or shorter wires? Would you rather cut through vias or have shorter strips?
 
 ### Tips and Tricks
 
@@ -123,9 +142,7 @@ If a good layout is found, the solution can be printed in two separate layers, w
 
 ### "Topo-GA" genetic autorouting algorithm
 
-The autorouter is based on an algorithm that combines topological ordering with a genetic algorithm (GA).
-
-As of 2017-01-09, I have not found references to this approach online. If I have any rights to this algorithm as the inventor, I hereby relinquish those rights and release the algorithm, which I call "Topo-GA", to the public domain. The implementation in this repository remains under the MIT license used by this project and shall serve as prior art in the event of a copyright dispute.
+The autorouter is based on an algorithm of my own design that combines topological ordering with a genetic algorithm. I call this algorithm "Topo-GA", and release it to the public domain. The implementation in this repository remains under the MIT license used by this project.
 
 The genetic algorithm codes possible routing layouts in genotypes and simulates a process of evolution. The genotype is a set of genes, with each gene representing a dependency between two electrical connections in a circuit. Each dependency states that one connection should be routed before another, while still allowing an arbitrary number of other connections to be routed between the two. Phenotypes, which express the solutions coded in the genotypes, are then created by using topological ordering to resolve the dependencies. Contradictions in the genotype that cause recursive dependencies (loops) and discontinuities are handled during topological ordering by selecting the lowest available unrouted connection and using it as a new base.
 

@@ -107,14 +107,6 @@ impl Controls {
                     ui.style_mut().spacing.indent_ends_with_horizontal_line = false;
                     // ui.style_mut().spacing.indent = Spacing::new(0.0, 0.0);
 
-                    Controls::level_0_label(ui, "Render");
-                    ui.indent(1, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label("ms/frame");
-                            Controls::highlighted_label(ui, &format!("{}", self.ms_per_frame));
-                        });
-                    });
-
                     Controls::level_0_label(ui, "Total");
                     ui.indent(1, |ui| {
                         ui.horizontal(|ui| {
@@ -156,6 +148,14 @@ impl Controls {
                         ui.horizontal(|ui| {
                             ui.label("Cost");
                             Controls::highlighted_label(ui, &format!("{}", self.best_layout_cost));
+                        });
+                    });
+
+                    Controls::level_0_label(ui, "Render");
+                    ui.indent(1, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("ms/frame");
+                            Controls::highlighted_label(ui, &format!("{}", self.ms_per_frame));
                         });
                     });
 
