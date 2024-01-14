@@ -6,9 +6,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-egui = "0.24.1"
+egui = "0.25.0"
 nalgebra = "0.32.3"
-eframe = "0.24.1"
+eframe = "0.25.0"
 
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
@@ -21,6 +21,8 @@ lazy_static = { version = "1.4.0", features = [] }
 rand = "0.8.5"
 num_cpus = { version = "1.16.0", features = [] }
 rand_chacha = "0.3.1"
+
+num-format = "0.4.4"
 
 # Include debug symbols in release builds (for profiling)
 [profile.release]
