@@ -173,8 +173,10 @@ impl Controls {
         if !first {
             ui.end_row();
         }
-        ui.heading(s);
-        ui.add_space(ui.style().spacing.item_spacing.y / 2.0);
+        ui.vertical(|ui| {
+            ui.heading(s);
+            ui.add_space(ui.style().spacing.item_spacing.y / 2.0);
+        });
         ui.end_row();
     }
 
@@ -182,8 +184,11 @@ impl Controls {
         let text_color = ui.visuals().strong_text_color();
         let font_id = TextStyle::Button.resolve(ui.style());
         let galley = ui.fonts(|fonts| fonts.layout(s.to_string(), font_id, text_color, ui.available_width()));
-        let (id, rect) = ui.allocate_space(galley.size());
-        ui.painter().galley(rect.min, galley, Color32::BLACK);
+        ui.vertical(|ui| {
+            ui.add_space(ui.style().spacing.item_spacing.y * 2.0);
+            let (id, rect) = ui.allocate_space(galley.size());
+            ui.painter().galley(rect.min, galley, Color32::BLACK);
+        });
         ui.end_row();
     }
 
