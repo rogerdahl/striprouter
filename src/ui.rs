@@ -1,7 +1,7 @@
 use crate::render::Render;
 use crate::MyApp;
 use eframe::epaint::{Color32, FontId};
-use egui::{Context, FontData, FontDefinitions, FontFamily, RichText, TextStyle, Ui};
+use egui::{Button, Context, FontData, FontDefinitions, FontFamily, RichText, TextStyle, Ui};
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
@@ -71,7 +71,6 @@ impl Controls {
                         }
                         ui.end_row();
                     });
-                    // ui.add_sized(ui.available_size(), Button::new("Save to .circuit file"));
                     if ui.button("Save").clicked() {
                         println!("Button was clicked!");
                     }
@@ -81,11 +80,7 @@ impl Controls {
                 Controls::level_0_label(ui, "Best Layout");
                 ui.indent(1, |ui| {
                     egui::Grid::new("file-svg-grid").num_columns(2).show(ui, |ui| {
-                        // ui.indent(1, |ui| {
-                        // ui.fill(|ui| {
-                        if ui.button("Save to .svg files").clicked() {
-                            println!("Button was clicked!");
-                        }
+                        ui.add_sized(ui.available_size(), Button::new("Save to .circuit file"));
                     });
                 });
 
@@ -210,61 +205,7 @@ impl Controls {
                         ui.end_row();
                     });
                 });
-
-                // Controls::level_0_label(ui, "Input Layout");
-                // ui.indent(1, |ui| {
-                //     egui::Grid::new("input-layout-grid").show(ui, |ui| {
-                //         // ui.add_sized(ui.available_size(), Button::new("Save to .circuit file"));
-                //         if ui.button("Save to .circuit file").clicked() {
-                //             println!("Button was clicked!");
-                //         }
-                //         ui.end_row();
-                //     });
-                // });
-                //
-                // Controls::level_0_label(ui, "Best Layout");
-                // ui.indent(1, |ui| {
-                //     egui::Grid::new("best-layout-grid").show(ui, |ui| {
-                //         // ui.fill(|ui| {
-                //         if ui.button("Save to .svg files").clicked() {
-                //             println!("Button was clicked!");
-                //         }
-                //     });
-                // });
-
-                // Modify the style within this scope
-                // ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(255, 0, 0);
-                // ui.style_mut().visuals.widgets.active.bg_fill = egui::Color32::from_rgb(0, 255, 0);
-                // ui.style_mut().visuals.widgets.bg_fill = egui::Color32::from_rgb(0, 255, 0);
-                // [TextStyle::Body].glyphs.size(label_text)
-                // let (id, rect) = ui.allocate_space(label_size);
             });
-
-            // egui::Grid::new("_options").num_columns(4).show(ui, |ui| {
-            //     // ui.label("Override text style:");
-            //     // // crate::ComboBox::from_id_source("Override text style").selected_text(match override_text_style {
-            //     // //     None => "None".to_owned(),
-            //     // //     Some(override_text_style) => override_text_style.to_string(),
-            //     // // }).show_ui(ui, |ui| {
-            //     // //     ui.selectable_value(override_text_style, None, "None");
-            //     // //     let all_text_styles = ui.style().text_styles();
-            //     // //     for style in all_text_styles {
-            //     // //         let text = crate::RichText::new(style.to_string()).text_style(style.clone());
-            //     // //         ui.selectable_value(override_text_style, Some(style), text);
-            //     // //     }
-            //     // // });
-            //     //
-            //     // ui.horizontal(|ui| {
-            //     //     // ui.radio_value(override_font_id, None, "None");
-            //     //     // if ui.radio(override_font_id.is_some(), "override").clicked() {
-            //     //     //     *override_font_id = Some(FontId::default());
-            //     //     // }
-            //     //     // if let Some(override_font_id) = override_font_id {
-            //     //     //     crate::introspection::font_id_ui(ui, override_font_id);
-            //     // });
-            //     //
-            //     // ui.end_row();
-            // });
         });
     }
 
