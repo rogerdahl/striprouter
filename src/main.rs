@@ -2,8 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use std::env;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use eframe::egui;
@@ -17,6 +17,7 @@ use crate::router_control::RouterControl;
 mod board;
 pub mod circuit;
 mod circuit_parser;
+mod controls;
 mod ga_core;
 mod ga_interface;
 mod layout;
@@ -29,7 +30,6 @@ mod settings;
 mod status;
 mod thread_stop;
 mod ucs;
-mod ui;
 mod util;
 mod via;
 
@@ -64,7 +64,9 @@ struct MyApp {
     counter: Arc<AtomicUsize>,
     start: Instant,
 
-    controls: ui::Controls,
+    controls: controls::Controls,
+
+    zoom: f32,
 }
 
 // impl MyApp {
@@ -110,6 +112,8 @@ impl Default for MyApp {
         );
         router_control.start();
 
+        let zoom = 15.0;
+
         Self {
             input_layout,
             current_layout,
@@ -118,7 +122,12 @@ impl Default for MyApp {
             // router_stop_signal: thread_stop,
             counter: counter.clone(),
             start: Instant::now(),
-            controls: ui::Controls::default(),
+
+            zoom,
+
+            controls: controls::Controls::new(
+                0.0, 0, 0.0, 0, 0, 0, 0,
+                zoom, 0, 0, 0, 0, 0, 0, false, false, false, false),
         }
     }
 }
