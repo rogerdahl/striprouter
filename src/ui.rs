@@ -62,25 +62,26 @@ impl Controls {
                     ui.heading("File");
                 });
 
-                Controls::level_0_label(ui, ".circuit file");
+                Controls::level_0_label(ui, "Circuit file");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("file-circuit-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("file-circuit-grid").show(ui, |ui| {
                         // ui.add_sized(ui.available_size(), Button::new("Save to .circuit file"));
                         if ui.button("Open").clicked() {
                             println!("Button was clicked!");
                         }
+                        if ui.button("Save").clicked() {
+                            println!("Button was clicked!");
+                        }
                         ui.end_row();
                     });
-                    if ui.button("Save").clicked() {
-                        println!("Button was clicked!");
-                    }
-                    ui.end_row();
                 });
 
                 Controls::level_0_label(ui, "Best Layout");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("file-svg-grid").num_columns(2).show(ui, |ui| {
-                        ui.add_sized(ui.available_size(), Button::new("Save to .circuit file"));
+                    egui::Grid::new("file-svg-grid").show(ui, |ui| {
+                        if ui.button("Save to .svg files").clicked() {
+                            println!("Button was clicked!");
+                        }
                     });
                 });
 
@@ -92,7 +93,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Total");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("total-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("total-grid").show(ui, |ui| {
                         ui.label("Checked");
                         Controls::highlighted_label(ui, &format!("{}", self.checked_total));
                         ui.end_row();
@@ -105,7 +106,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Current Layout");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("current-cost-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("current-cost-grid").show(ui, |ui| {
                         ui.label("Completed");
                         Controls::highlighted_label(ui, &format!("{}", self.ms_per_frame));
                         ui.end_row();
@@ -122,7 +123,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Best Layout");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("best-cost-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("best-cost-grid").show(ui, |ui| {
                         ui.label("Completed");
                         Controls::highlighted_label(ui, &format!("{}", self.best_layout_completed_routes));
                         ui.end_row();
@@ -139,7 +140,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Render");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("render-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("render-grid").show(ui, |ui| {
                         ui.label("ms/frame");
                         Controls::highlighted_label(ui, &format!("{}", self.ms_per_frame));
                         ui.end_row();
@@ -154,7 +155,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Costs");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("costs-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("costs-grid").show(ui, |ui| {
                         ui.label("Wire");
                         ui.add(egui::DragValue::new(&mut self.wire_cost).clamp_range(0..=100));
                         ui.end_row();
@@ -175,7 +176,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Display");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("display-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("display-grid").show(ui, |ui| {
                         ui.label("Rat's Nest");
                         ui.checkbox(&mut self.show_rats_nest, "");
                         ui.end_row();
@@ -199,7 +200,7 @@ impl Controls {
 
                 Controls::level_0_label(ui, "Misc");
                 ui.indent(1, |ui| {
-                    egui::Grid::new("misc-grid").num_columns(2).show(ui, |ui| {
+                    egui::Grid::new("misc-grid").show(ui, |ui| {
                         ui.label("Pause");
                         ui.checkbox(&mut self.pause_router, "");
                         ui.end_row();
