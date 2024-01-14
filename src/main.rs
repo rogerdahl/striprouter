@@ -1,6 +1,19 @@
 #![allow(unused)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::env;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Instant;
+
+use eframe::egui;
+use rand::Rng;
+
+use crate::layout::Layout;
+use crate::render::Render;
+// use crate::thread_stop::ThreadStop;
+use crate::router_control::RouterControl;
+
 mod board;
 pub mod circuit;
 mod circuit_parser;
@@ -20,28 +33,7 @@ mod ui;
 mod util;
 mod via;
 
-static CIRCUIT_FILE_PATH: &'static str = "/home/dahl/dev/rust/striprouter/circuits/example.circuit";
-
-use crate::util::Timer;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use via::{LayerStartEndVia, LayerVia, Pos, ValidVia, Via};
-
-use crate::ga_interface::GeneticAlgorithm;
-use crate::layout::Layout;
-use crate::render::Render;
-use crate::router_thread::RouterThread;
-// use crate::thread_stop::ThreadStop;
-use crate::router_control::RouterControl;
-use crate::via::StartEndVia;
-use eframe::egui;
-use eframe::emath::Align2;
-use eframe::epaint::Shape;
-use egui::introspection::font_id_ui;
-use egui::style::Spacing;
-use egui::{Pos2, TextStyle, Ui};
-use rand::Rng;
+static CIRCUIT_FILE_PATH: &'static str = "../../circuits/example.circuit";
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -89,7 +81,10 @@ impl Default for MyApp {
         let current_layout = Arc::new(Mutex::new(Layout::new()));
         let best_layout = Arc::new(Mutex::new(Layout::new()));
 
-        circuit_parser::CircuitFileParser::new(&mut input_layout.lock().unwrap()).parse(CIRCUIT_FILE_PATH);
+        let mut bin_path = env::current_exe().unwrap();
+        bin_path.pop();
+        bin_path.push(CIRCUIT_FILE_PATH);
+        circuit_parser::CircuitFileParser::new(&mut input_layout.lock().unwrap()).parse(bin_path.as_os_str());
 
         // layout.via_set_vec = nets.via_set_vec;
         // layout.set_idx_vec = nets.set_idx_vec;
@@ -143,9 +138,6 @@ impl eframe::App for MyApp {
 
         // Stripboard
         egui::CentralPanel::default().show(ctx, |ui| {
-            use egui::{Color32, FontId, RichText};
-
-
             // let top_left = self.to_pos(ui.min_rect().left_top());
             let mut render = Render::new(self.controls.zoom);
             render.start_render(ctx);

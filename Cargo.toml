@@ -1,8 +1,8 @@
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+#workspace = { members = ["striprouter"] }
 
 [package]
 name = "striprouter"
-version = "0.1.2"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
@@ -10,28 +10,11 @@ egui = "0.24.1"
 nalgebra = "0.32.3"
 eframe = "0.24.1"
 
-#ggez = '0.7.0'
-#glam = '0.20.2'
-#beryllium="0.7.6"
-##zstr="0.1.0"
-#zstring="0.1.2"
-##ogl33="0.3.0"
-#learn-opengl="0.0.0"
-#bytemuck = "1"
-#ogl33 = { version = "0.2", features = ["debug_error_checks"]}
-#ultraviolet = "0.7"
-
-#eframe = { path = "../../crates/eframe", features = [
-#    "__screenshot", # __screenshot is so we can dump a screenshot using EFRAME_SCREENSHOT_TO
-#] }
-#
-# For image support:
-#egui_extras = { path = "../../crates/egui_extras", features = ["image"] }
-
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
+
 serde = { version = "1.0.193", features = [] }
 regex = "1.10.2"
 lazy_static = { version = "1.4.0", features = [] }

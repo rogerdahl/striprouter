@@ -1,5 +1,12 @@
 ## Stripboard Autorouter
 
+---
+
+UNDER DEVELOPMENT AND NOT YET USABLE. See https://github.com/rogerdahl/striprouter-cpp for a working version.
+
+---
+
+
 <img align="right" width="60%" src="./assets/screenshot.png">
 
 This is a cross-platform program that, given a description of a circuit, searches for the best way to create the required connections on a [stripboard](https://en.wikipedia.org/wiki/Stripboard).
@@ -22,6 +29,7 @@ If a good layout is found, the solution can be printed in two separate layers, w
 
  * [Features](#features)
  * [How to use](#how-to-use)
+ * [How to set costs](#how-to-set-costs)
  * [Tips and Tricks](#tips-and-tricks)
  * ["Topo-GA" genetic autorouting algorithm](#topo-ga-genetic-autorouting-algorithm)
  * [Command line arguments](#command-line-arguments)

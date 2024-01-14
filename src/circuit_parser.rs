@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -40,7 +41,8 @@ impl<'a> CircuitFileParser<'a> {
         }
     }
 
-    pub fn parse(&mut self, circuit_file_path: &str) {
+    pub fn parse(&mut self, circuit_file_path: &OsStr) {
+        println!("{:?}", circuit_file_path.to_str());
         let file = File::open(circuit_file_path).expect("Cannot read .circuit file");
         let reader = io::BufReader::new(file);
 
