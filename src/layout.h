@@ -51,7 +51,6 @@ class Layout
   long cost;
   int nCompletedRoutes;
   int nFailedRoutes;
-  int numShortcuts;
 
   bool isReadyForRouting;
   bool isReadyForEval;

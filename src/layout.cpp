@@ -8,7 +8,6 @@ Layout::Layout()
     cost(0),
     nCompletedRoutes(0),
     nFailedRoutes(0),
-    numShortcuts(0),
     isReadyForRouting(false),
     isReadyForEval(false),
     hasError(false)
@@ -36,7 +35,6 @@ void Layout::copy(const Layout& s)
   cost = s.cost;
   nCompletedRoutes = s.nCompletedRoutes;
   nFailedRoutes = s.nFailedRoutes;
-  numShortcuts = s.numShortcuts;
   isReadyForRouting = s.isReadyForRouting;
   isReadyForEval = s.isReadyForEval;
   hasError = s.hasError;

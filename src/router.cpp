@@ -103,8 +103,7 @@ bool Router::routeAll()
 
 bool Router::findCompleteRoute(const StartEndVia& viaStartEnd)
 {
-  Via shortcutEndVia;
-  auto routeWasFound = findRoute(shortcutEndVia, viaStartEnd);
+  auto routeWasFound = findRoute(viaStartEnd);
   if (routeWasFound) {
     ++layout_.nCompletedRoutes;
   }
@@ -114,9 +113,9 @@ bool Router::findCompleteRoute(const StartEndVia& viaStartEnd)
   return routeWasFound;
 }
 
-bool Router::findRoute(Via& shortcutEndVia, const StartEndVia& viaStartEnd)
+bool Router::findRoute(const StartEndVia& viaStartEnd)
 {
-  UniformCostSearch ucs(*this, layout_, nets_, shortcutEndVia, viaStartEnd);
+  UniformCostSearch ucs(*this, layout_, nets_, viaStartEnd);
   auto routeStepVec = ucs.findLowestCostRoute();
   if (layout_.hasError || !routeStepVec.size()) {
     return false;

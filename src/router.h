@@ -36,7 +36,7 @@ class Router
   private:
   bool routeAll();
   bool findCompleteRoute(const StartEndVia&);
-  bool findRoute(Via& shortcutEndVia, const StartEndVia& viaStartEnd);
+  bool findRoute(const StartEndVia& viaStartEnd);
   RouteSectionVec condenseRoute(const RouteStepVec& routeStepVec);
   StripCutVec findStripCuts();
 

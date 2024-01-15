@@ -20,12 +20,12 @@ class UniformCostSearch
 {
   public:
   UniformCostSearch(
-      Router& router, Layout& layout, Nets& nets, Via& shortcutEndVia,
+      Router& router, Layout& layout, Nets& nets,
       const StartEndVia& viaStartEnd);
   RouteStepVec findLowestCostRoute();
 
   private:
-  bool findCosts(Via& shortcutEndVia);
+  bool findCosts();
   void exploreNeighbour(LayerCostVia& node, LayerCostVia n);
   void exploreFrontier(LayerCostVia& node, LayerCostVia n);
   RouteStepVec backtraceLowestCostRoute(const StartEndVia&);
@@ -44,7 +44,6 @@ class UniformCostSearch
   Router& router_;
   Layout& layout_;
   Nets& nets_;
-  Via& shortcutEndVia_;
   const StartEndVia& viaStartEnd_;
 
   CostViaVec viaCostVec_;

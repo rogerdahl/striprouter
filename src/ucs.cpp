@@ -4,12 +4,11 @@
 #include "ucs.h"
 
 UniformCostSearch::UniformCostSearch(
-    Router& router, Layout& layout, Nets& nets, Via& shortcutEndVia,
+    Router& router, Layout& layout, Nets& nets,
     const StartEndVia& viaStartEnd)
   : router_(router),
     layout_(layout),
     nets_(nets),
-    shortcutEndVia_(shortcutEndVia),
     viaStartEnd_(viaStartEnd)
 {
   viaCostVec_ = CostViaVec(layout_.gridW * layout_.gridH);
@@ -17,14 +16,12 @@ UniformCostSearch::UniformCostSearch(
 
 RouteStepVec UniformCostSearch::findLowestCostRoute()
 {
-  shortcutEndVia_ = viaStartEnd_.end;
-  bool foundRoute = findCosts(shortcutEndVia_);
+  bool foundRoute = findCosts();
 #ifndef NDEBUG
   layout_.diagCostVec = viaCostVec_;
 #endif
   if (foundRoute) {
-    return backtraceLowestCostRoute(
-        StartEndVia(viaStartEnd_.start, shortcutEndVia_));
+    return backtraceLowestCostRoute(viaStartEnd_);
   }
   else {
     return RouteStepVec();
@@ -50,7 +47,7 @@ RouteStepVec UniformCostSearch::findLowestCostRoute()
 //         'else if' n is in frontier with higher cost
 //           replace existing node with n
 
-bool UniformCostSearch::findCosts(Via& shortcutEndVia)
+bool UniformCostSearch::findCosts()
 {
   Settings& settings = layout_.settings;
 
@@ -112,7 +109,7 @@ bool UniformCostSearch::findCosts(Via& shortcutEndVia)
 
 void UniformCostSearch::exploreNeighbour(LayerCostVia& node, LayerCostVia n)
 {
-  if (router_.isAvailable(n, viaStartEnd_.start, shortcutEndVia_)) {
+  if (router_.isAvailable(n, viaStartEnd_.start, viaStartEnd_.end)) {
     exploreFrontier(node, n);
   }
 }
