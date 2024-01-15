@@ -9,7 +9,6 @@ Layout::Layout()
     nCompletedRoutes(0),
     nFailedRoutes(0),
     isReadyForRouting(false),
-    isReadyForEval(false),
     hasError(false)
 {
   updateBaseTimestamp();
@@ -36,7 +35,6 @@ void Layout::copy(const Layout& s)
   nCompletedRoutes = s.nCompletedRoutes;
   nFailedRoutes = s.nFailedRoutes;
   isReadyForRouting = s.isReadyForRouting;
-  isReadyForEval = s.isReadyForEval;
   hasError = s.hasError;
   layoutInfoVec = s.layoutInfoVec;
   routeVec = s.routeVec;

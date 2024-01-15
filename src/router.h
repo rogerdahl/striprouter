@@ -26,8 +26,7 @@ class Router
       Layout& currentLayout, const TimeDuration& _maxRenderDelay);
   bool route();
   // Interface for Uniform Cost Search
-  bool isAvailable(
-      const LayerVia& via, const Via& startVia, const Via& targetVia);
+  bool isAvailable(const LayerVia& via, const Via& targetVia);
   bool isTarget(const LayerVia& via, const Via& targetVia);
   bool isTargetPin(const LayerVia& via, const Via& targetVia);
   bool isAnyPin(const Via& via);

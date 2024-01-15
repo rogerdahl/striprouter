@@ -109,7 +109,7 @@ bool UniformCostSearch::findCosts()
 
 void UniformCostSearch::exploreNeighbour(LayerCostVia& node, LayerCostVia n)
 {
-  if (router_.isAvailable(n, viaStartEnd_.start, viaStartEnd_.end)) {
+  if (router_.isAvailable(n, viaStartEnd_.start)) {
     exploreFrontier(node, n);
   }
 }

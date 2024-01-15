@@ -53,7 +53,6 @@ class Layout
   int nFailedRoutes;
 
   bool isReadyForRouting;
-  bool isReadyForEval;
   bool hasError;
 
   StringVec layoutInfoVec;

@@ -31,7 +31,6 @@ bool Router::route()
   layout_.stripCutVec = findStripCuts();
   layout_.cost +=
       layout_.settings.cut_cost * static_cast<int>(layout_.stripCutVec.size());
-  layout_.isReadyForEval = true;
   if (layout_.hasError) {
     layout_.diagTraceVec = viaTraceVec_;
   }
@@ -81,7 +80,6 @@ bool Router::routeAll()
       auto lock = currentLayout_.scopeLock();
       currentLayout_ = layout_;
       startTime = std::chrono::steady_clock::now();
-      layout_.isReadyForEval = true;
     }
   }
   return isAborted;
@@ -188,7 +186,7 @@ StripCutVec Router::findStripCuts()
 //
 
 bool Router::isAvailable(
-    const LayerVia& via, const Via& startVia, const Via& targetVia)
+    const LayerVia& via, const Via& targetVia)
 {
   if (via.via.x() < 0 || via.via.y() < 0 || via.via.x() >= layout_.gridW
       || via.via.y() >= layout_.gridH) {
@@ -201,12 +199,12 @@ bool Router::isAvailable(
   }
   else {
     // If it has an equivalent, it must be our equivalent
-    if (nets_.hasConnection(via.via) && !nets_.isConnected(via.via, startVia)) {
+    if (nets_.hasConnection(via.via) && !nets_.isConnected(via.via, targetVia)) {
       return false;
     }
     // Can go to component pin only if it's our equivalent.
     if (isAnyPin(via.via)) {
-      if (!nets_.isConnected(via.via, startVia)) {
+      if (!nets_.isConnected(via.via, targetVia)) {
         return false;
       }
     }
