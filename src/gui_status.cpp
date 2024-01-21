@@ -129,7 +129,7 @@ void GuiStatus::refresh()
 
 std::string GuiStatus::groupThousands(long n)
 {
-  return fmt::format("{:n}", n);
+  return fmt::format("{:L}", n);
 }
 
 void GuiStatus::moveToUpperLeft()

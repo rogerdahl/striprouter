@@ -838,6 +838,8 @@ void resetInputLayout()
 
 int main(int argc, char** argv)
 {
+  std::locale::global(std::locale("en_US.UTF-8"));
+
   //  fmt::print("GLFW: {}\n", glfwGetVersionString());
   std::srand(std::time(0));
 
