@@ -17,7 +17,6 @@ pub struct Settings {
     pub strip_cost: usize,
     pub via_cost: usize,
     pub cut_cost: usize,
-    // pause: bool,
 }
 
 impl Settings {
@@ -27,7 +26,6 @@ impl Settings {
             strip_cost: DEFAULT_STRIP_COST,
             via_cost: DEFAULT_VIA_COST,
             cut_cost: DEFAULT_CUT_COST,
-            // pause: false,
         }
     }
 }

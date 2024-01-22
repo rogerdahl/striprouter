@@ -22,6 +22,8 @@ pub(crate) struct RouterControl {
     router_thread_vec: Vec<RouterThread>,
 
     counter: Arc<AtomicUsize>,
+
+    limit_routes: Arc<AtomicUsize>,
 }
 
 impl RouterControl {
@@ -31,7 +33,7 @@ impl RouterControl {
         current_layout: Arc<Mutex<Layout>>,
         best_layout: Arc<Mutex<Layout>>,
         counter: Arc<AtomicUsize>,
-        // current_layout: Arc<Mutex<Layout>>,
+        limit_routes: Arc<AtomicUsize>,
     ) -> Self {
         Self {
             input_layout,
@@ -41,6 +43,7 @@ impl RouterControl {
             genetic_algorithm: Arc::new(Mutex::new(GeneticAlgorithm::new(1000, 0.7, 0.01))),
             router_thread_vec: Vec::new(),
             counter,
+            limit_routes,
         }
     }
 
@@ -50,8 +53,11 @@ impl RouterControl {
             .unwrap()
             .reset(self.input_layout.lock().unwrap().circuit.connection_vec.len());
 
-        // for i in 0..1 {
-        for i in 0..num_cpus::get() {
+        // If DEBUG build, we start only one router thread.
+        // If RELEASE build, we start as many router threads as there are CPUs.
+        //
+        let n_threads = if cfg!(debug_assertions) { 1 } else { num_cpus::get() };
+        for i in 0..n_threads {
             println!("Starting router thread i: {}", i);
             let router_thread = Arc::new(Mutex::new(RouterThread::new(
                 // Arc::clone() is a method on the Arc type that returns a new Arc
@@ -63,6 +69,7 @@ impl RouterControl {
                 Arc::clone(&self.router_stop_signal),
                 Arc::clone(&self.genetic_algorithm),
                 Arc::clone(&self.counter),
+                Arc::clone(&self.limit_routes),
                 i,
             )));
             // let router_thread_clone = Arc::clone(&router_thread);

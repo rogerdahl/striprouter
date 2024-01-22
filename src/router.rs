@@ -6,7 +6,8 @@ use crate::ucs::UniformCostSearch;
 use crate::via::{LayerStartEndVia, LayerVia, StartEndVia, ValidVia, Via, WireLayerVia};
 
 use std::collections::HashSet;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 pub struct Router {
@@ -37,18 +38,21 @@ impl Router {
         layout: &mut Layout,
         nets: &mut Nets,
         connection_idx_vec: Vec<usize>,
-        shortcut_end_via: Via,
+        limit_routes: &mut Arc<AtomicUsize>,
     ) -> bool {
         self.block_component_footprints(board, layout);
         self.join_all_connections(board, layout, nets);
         self.register_active_component_pins(layout);
-        let is_aborted = self.route_all(board, layout, nets, connection_idx_vec, shortcut_end_via);
+        let is_aborted = self.route_all(board, layout, nets, connection_idx_vec, limit_routes);
         let strip_cut_vec = self.find_strip_cuts(board, layout, nets);
-        layout.cost += (layout.settings.cut_cost * strip_cut_vec.len());
-        layout.is_ready_for_eval = true;
+
+        // TODO: Renable!
+        // layout.cost += (layout.settings.cut_cost * strip_cut_vec.len());
+
         // if layout.has_error {
         //     layout.diag_trace_vec = self.via_trace_vec.clone();
         // }
+
         is_aborted
     }
 
@@ -58,15 +62,30 @@ impl Router {
         layout: &mut Layout,
         nets: &mut Nets,
         connection_idx_vec: Vec<usize>,
-        shortcut_end_via: Via,
+        limit_routes: &mut Arc<AtomicUsize>,
     ) -> bool {
+        // TODO: remove, was testing
+        // let mut nets = Nets::new(board);
+        // nets.clear(board);
+        // self.join_all_connections(board, layout, nets);
+
         let mut is_aborted = false;
         let start_time = Instant::now();
         let connection_via_vec = layout.circuit.gen_connection_via_vec();
         layout.route_status_vec.resize(connection_via_vec.len(), false);
+
+        let mut limit = limit_routes.load(std::sync::atomic::Ordering::Relaxed);
+        // println!("inner router: limit_routes = {}", limit);
+
         for connection_idx in connection_idx_vec.clone() {
+            if limit == 0 {
+                break;
+            }
+
+            limit -= 1;
+
             let start_end_via = connection_via_vec[connection_idx];
-            let route_was_found = self.find_complete_route(board, layout, nets, start_end_via, shortcut_end_via);
+            let route_was_found = self.find_complete_route(board, layout, nets, start_end_via);
             layout.route_status_vec[connection_idx] = route_was_found;
             // if self.thread_stop.is_stopped() {
             //     is_aborted = true;
@@ -87,11 +106,24 @@ impl Router {
             //     let _lock: MutexGuard<_> = self.current_layout.scope_lock().unwrap();
             //     self.current_layout = layout;
             //     // start_time = Instant::now();
-            //     layout.is_ready_for_eval = true;
             // }
         }
         is_aborted
     }
+
+    // There are two main approaches possible when routing with potential shortcut.
+    //
+    // (1) If, when routing from A to B, the router starts at A, finds a shortcut to
+    // B, and routes only to the shortcut, B remains unconnected. It then becomes
+    // necessary to do a second route, starting at B, and routing to A or a shortcut
+    // to A.
+    //
+    // (2) However, if Uniform Cost Search is instead allowed to flow through
+    // shortcuts but does not stop there, one gets a route that always connects A
+    // and B, but will follow low cost routes along shortcuts when possible.
+    //
+    // I've currently implemented (2). I'm not sure if (1) would create any
+    // different routes.
 
     fn find_complete_route(
         &mut self,
@@ -99,9 +131,8 @@ impl Router {
         layout: &mut Layout,
         nets: &mut Nets,
         start_end_via: StartEndVia,
-        shortcut_end_via: Via,
     ) -> bool {
-        let route_was_found = self.find_route(board, layout, nets, start_end_via, shortcut_end_via);
+        let route_was_found = self.find_route(board, layout, nets, start_end_via);
         if route_was_found {
             layout.n_completed_routes += 1;
         } else {
@@ -110,16 +141,9 @@ impl Router {
         route_was_found
     }
 
-    fn find_route(
-        &mut self,
-        board: Board,
-        layout: &mut Layout,
-        nets: &mut Nets,
-        start_end_via: StartEndVia,
-        shortcut_end_via: Via,
-    ) -> bool {
+    fn find_route(&mut self, board: Board, layout: &mut Layout, nets: &mut Nets, start_end_via: StartEndVia) -> bool {
         let mut ucs = UniformCostSearch::new(board);
-        let route_step_vec = ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via, shortcut_end_via);
+        let route_step_vec = ucs.find_lowest_cost_route(board, layout, nets, self, start_end_via);
         if route_step_vec.is_empty() {
             return false;
         }
@@ -134,6 +158,10 @@ impl Router {
         true
     }
 
+    // - Route always starts and ends on wire layer.
+    // - Through to wire always starts a wire section.
+    // - Through to strip always ends a wire section.
+    // - Everything else is a strip section.
     fn condense_route(&self, route_step_vec: Vec<LayerVia>) -> Vec<LayerStartEndVia> {
         let mut route_section_vec = Vec::new();
         assert!(!route_step_vec[0].is_wire_layer);
@@ -159,6 +187,14 @@ impl Router {
         route_section_vec
     }
 
+    // Transitions
+    // Cuts at:
+    // - used <-> other used
+    // - used <-> other pin
+    // Cuts NOT at:
+    // - unused <-> used
+    // - unused <-> pin
+    // - used <-> same pin
     fn find_strip_cuts(&self, board: Board, layout: &mut Layout, nets: &mut Nets) -> Vec<Via> {
         let mut v = Vec::new();
         for x in 0..self.board.w {
@@ -180,32 +216,40 @@ impl Router {
         v
     }
 
+    //
+    // Interface for Uniform Cost Search
+    //
+
     pub fn is_available(
         &self,
         board: Board,
         layout: &mut Layout,
         nets: &mut Nets,
-        via: LayerVia,
-        start_via: Via,
-        target_via: Via,
+        cur_node: LayerVia,
+        start_node: Via,
     ) -> bool {
-        // if via.via.x < 0 || via.via.y < 0 || via.via.x >= board.w || via.via.y >= board.h {
-        //     return false;
-        // }
-        if via.is_wire_layer {
-            if self.is_blocked(board, via.via) {
+        if cur_node.via.x >= board.w || cur_node.via.y >= board.h {
+            return false;
+        }
+        if cur_node.is_wire_layer {
+            if self.is_blocked(board, cur_node.via) {
                 return false;
             }
         } else {
-            if nets.has_connection(board, layout, via.via) && !nets.is_connected(board, layout, via.via, start_via) {
+            // If it has an equivalent, it must be our equivalent
+            if nets.has_connection(board, layout, cur_node.via)
+                && !nets.is_connected(board, layout, cur_node.via, start_node)
+            {
                 return false;
             }
-            if self.is_any_pin(via.via) {
-                if !nets.is_connected(board, layout, via.via, start_via) {
+            // Can go to component pin only if it's our equivalent.
+            if self.is_any_pin(cur_node.via) {
+                if !nets.is_connected(board, layout, cur_node.via, start_node) {
                     return false;
                 }
             }
         }
+        // Can go there!
         true
     }
 
@@ -218,6 +262,11 @@ impl Router {
         &mut self.via_trace_vec[i].wire_to_via
     }
 
+    //
+    // Wire layer blocking
+    //
+
+    // Block the entire component footprint on the wire layer
     fn block_component_footprints(&mut self, board: Board, layout: &mut Layout) {
         for (component_name, _) in &layout.circuit.component_name_to_component_map {
             let footprint = layout.circuit.calc_component_footprint(component_name.to_string());
@@ -245,6 +294,10 @@ impl Router {
     fn is_blocked(&self, board: Board, via: Via) -> bool {
         self.via_trace_vec[board.idx(via)].is_wire_side_blocked
     }
+
+    //
+    // Nets
+    //
 
     fn join_all_connections(&mut self, board: Board, layout: &mut Layout, nets: &mut Nets) {
         for c in layout.circuit.gen_connection_via_vec() {

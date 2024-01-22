@@ -1,4 +1,13 @@
 #workspace = { members = ["striprouter"] }
+#
+#[[bin]]
+#name = "striprouter"
+#path = "src/main.rs"
+#
+#[lib]
+#name = "striprouter"
+#path = "src/lib.rs"
+
 
 [package]
 name = "striprouter"
@@ -27,3 +36,4 @@ num-format = "0.4.4"
 # Include debug symbols in release builds (for profiling)
 [profile.release]
 debug = 1
+

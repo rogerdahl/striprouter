@@ -489,6 +489,11 @@ impl Render {
     }
 
     pub fn get_mouse_net(&self, ui: &mut Ui, layout: &Layout, mouse_via: &ValidVia) -> Vec<Via> {
+
+
+        return Vec::new();
+
+
         let v = mouse_via;
         let empty_via_set = Vec::new();
         if !v.is_valid {

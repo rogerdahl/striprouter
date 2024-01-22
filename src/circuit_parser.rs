@@ -19,17 +19,16 @@ pub struct CircuitFileParser<'a> {
 }
 
 lazy_static! {
-    static ref ALIAS_RX: Regex = Regex::new(r"^([\w.]+) = ([\w.]+)$").unwrap();
+    static ref WHITESPACE_SEP_RX: Regex = Regex::new(r"\s+").unwrap();
+    // static ref ALIAS_RX: Regex = Regex::new(r"^([\w.]+) = ([\w.]+)$").unwrap();
     static ref COMMENT_OR_EMPTY_FULL_RX: Regex = Regex::new(r"^(#.*)?$").unwrap();
     static ref BOARD_SIZE_RX: Regex = Regex::new(r"^board (\d+),(\d+)$").unwrap();
     static ref OFFSET_RX: Regex = Regex::new(r"^offset (-?\d+),(-?\d+)$").unwrap();
     static ref PKG_NAME_RX: Regex = Regex::new(r"^(\w+)\s(.*)").unwrap();
-    static ref PKG_SEP_RX: Regex = Regex::new(r"\s+").unwrap();
     static ref PKG_POS_RX: Regex = Regex::new(r"(-?\d+),(-?\d+)").unwrap();
     static ref COMPONENT_FULL_RX: Regex = Regex::new(r"^(\w+) (\w+) ?(\d+),(\d+)$").unwrap();
     static ref CONNECTION_FULL_RX: Regex = Regex::new(r"^(\w+)\.(\d+) (\w+)\.(\d+)$").unwrap();
-    static ref DONT_CARE_FULL_RX: Regex = Regex::new(r"^(\w+) (\d+(,|$))+").unwrap();
-    static ref DONT_CARE_PIN_IDX_RX: Regex = Regex::new(r"(\d+)(,|$)").unwrap();
+    static ref DONT_CARE_FULL_RX: Regex = Regex::new(r"^(\w+) ((\d+( |$))+)$").unwrap();
 }
 
 impl<'a> CircuitFileParser<'a> {
@@ -51,7 +50,7 @@ impl<'a> CircuitFileParser<'a> {
             line_idx += 1;
             let mut line = line.unwrap();
             line = line.split_whitespace().collect::<Vec<&str>>().join(" ");
-            line = line.split(", ").collect::<Vec<&str>>().join(",");
+            // line = line.split(", ").collect::<Vec<&str>>().join(",");
             line = line.trim().to_string();
             match self.parse_line(line.clone()) {
                 Ok(_) => (),
@@ -67,13 +66,14 @@ impl<'a> CircuitFileParser<'a> {
 
     fn parse_line(&mut self, mut line: String) -> Result<(), String> {
         // Substitute aliases
-        for alias in &self.aliases {
-            let re = Regex::new(&regex::escape(&alias.0)).unwrap();
-            let tmp = re.replace_all(&line, &alias.1).to_string();
-            if line != tmp {
-                line = tmp;
-            }
-        }
+        // TODO: Refactor to record aliases in a map, and substitute them in one pass.
+        // for alias in &self.aliases {
+        //     let re = Regex::new(&regex::escape(&alias.0)).unwrap();
+        //     let tmp = re.replace_all(&line, &alias.1).to_string();
+        //     if line != tmp {
+        //         line = tmp;
+        //     }
+        // }
 
         // We pass the line to line parsers in turn, until one of them succeeds.
         // A line parser returns:
@@ -88,6 +88,9 @@ impl<'a> CircuitFileParser<'a> {
 
         // Connections are most common, so they are parsed first to improve
         // performance.
+
+        println!("{}", line);
+
         return if self.parse_connection(&line)? {
             Ok(())
         } else if self.parse_comment_or_empty(&line)? {
@@ -102,21 +105,23 @@ impl<'a> CircuitFileParser<'a> {
             Ok(())
         } else if self.parse_dont_care(&line)? {
             Ok(())
-        } else if self.parse_alias(&line)? {
-            Ok(())
+        // } else if self.parse_alias(&line)? {
+        //     Ok(())
         } else {
-            Err("Invalid line".to_string())
+            Err("Unrecognized line".to_string())
         };
     }
 
-    fn parse_alias(&mut self, line: &str) -> Result<bool, String> {
-        if let Some(captures) = ALIAS_RX.captures(line) {
-            self.aliases.push((captures[1].to_string(), captures[2].to_string()));
-            return Ok(true);
-        }
-        Ok(false)
-    }
+    // Alias
+    // fn parse_alias(&mut self, line: &str) -> Result<bool, String> {
+    //     if let Some(captures) = ALIAS_RX.captures(line) {
+    //         self.aliases.push((captures[1].to_string(), captures[2].to_string()));
+    //         return Ok(true);
+    //     }
+    //     Ok(false)
+    // }
 
+    // Comment or empty line
     fn parse_comment_or_empty(&self, line: &str) -> Result<bool, String> {
         match COMMENT_OR_EMPTY_FULL_RX.captures(line) {
             Some(_) => return Ok(true),
@@ -124,6 +129,8 @@ impl<'a> CircuitFileParser<'a> {
         }
     }
 
+    // Board params (currently just size)
+    // board <number of horizontal vias>,<number of vertical vias>
     fn parse_board(&mut self, line: &str) -> Result<bool, String> {
         match BOARD_SIZE_RX.captures(line) {
             Some(captures) => {
@@ -135,6 +142,10 @@ impl<'a> CircuitFileParser<'a> {
         }
     }
 
+    // Component position offset. Can be used multiple times to adjust section of
+    // circuit. Adds the given offset to the positions of components defined below
+    // in the .circuit file. To disable, set to 0,0.
+    // offset <relative x pos>, <relative y pos>
     fn parse_offset(&mut self, line: &str) -> Result<bool, String> {
         match OFFSET_RX.captures(line) {
             Some(captures) => {
@@ -146,13 +157,15 @@ impl<'a> CircuitFileParser<'a> {
         }
     }
 
+    // Package
+    // dip8 0,0 1,0 2,0 3,0 4,0 5,0 6,0 7,0 7,-2 6,-2 5,-2 4,-2 3,-2 2,-2 1,-2
     fn parse_package(&mut self, line: &str) -> Result<bool, String> {
         match PKG_NAME_RX.captures(line) {
             Some(captures) => {
                 let pkg_name = captures[1].to_string();
                 let pkg_pos = captures[2].to_string();
                 let mut v = Vec::new();
-                for s in PKG_SEP_RX.split(&pkg_pos) {
+                for s in WHITESPACE_SEP_RX.split(&pkg_pos) {
                     if let Some(captures) = PKG_POS_RX.captures(s) {
                         v.push(OffsetVia::new(
                             captures[1].parse::<isize>().unwrap(),
@@ -169,6 +182,8 @@ impl<'a> CircuitFileParser<'a> {
         }
     }
 
+    // Component
+    // <component name> <package name> <absolute position of component pin 1>
     fn parse_component(&mut self, line: &str) -> Result<bool, String> {
         match COMPONENT_FULL_RX.captures(line) {
             Some(captures) => {
@@ -202,16 +217,19 @@ impl<'a> CircuitFileParser<'a> {
         };
     }
 
+    // Don't Care pins
+    // <component name> <list of pin indexes>
     fn parse_dont_care(&mut self, line: &str) -> Result<bool, String> {
         match DONT_CARE_FULL_RX.captures(line) {
             Some(captures) => {
                 let component_name = captures[1].to_string();
+                let pin_idx_list = captures[2].to_string();
                 let component = self
                     .layout
                     .circuit
                     .component_name_to_component_map
                     .get_mut(&component_name);
-                match component {
+                return match component {
                     Some(component) => {
                         let package_pos_vec = self
                             .layout
@@ -219,28 +237,30 @@ impl<'a> CircuitFileParser<'a> {
                             .package_to_pos_map
                             .get(&component.package_name)
                             .unwrap();
-                        for captures in DONT_CARE_PIN_IDX_RX.captures_iter(line) {
-                            let dont_care_pin_idx = captures[1].parse::<usize>().unwrap();
-                            if dont_care_pin_idx < 1 || dont_care_pin_idx > package_pos_vec.len() {
+                        for pin_idx_str in WHITESPACE_SEP_RX.split(&pin_idx_list.as_str()) {
+                            let pin_idx = pin_idx_str.parse::<usize>().unwrap();
+                            if pin_idx < 1 || pin_idx > package_pos_vec.len() {
                                 return Err(format!(
                                     "Invalid \"Don't Care\" pin number for {}: {}. \
                                     Must be between 1 and {} (including)",
                                     component_name,
-                                    dont_care_pin_idx,
+                                    pin_idx,
                                     package_pos_vec.len()
                                 ));
                             }
-                            component.dont_care_pin_idx_set.insert(dont_care_pin_idx - 1);
+                            component.dont_care_pin_idx_set.insert(pin_idx - 1);
                         }
-                        return Ok(true);
+                        Ok(true)
                     }
-                    None => return Err(format!("Unknown component: {}", component_name)),
-                }
+                    None => Err(format!("Unknown component: {}", component_name)),
+                };
             }
             None => return Ok(false),
         }
     }
 
+    // Connection
+    // 7400.9 rpi.10
     fn parse_connection(&mut self, line: &str) -> Result<bool, String> {
         return match CONNECTION_FULL_RX.captures(line) {
             Some(captures) => {

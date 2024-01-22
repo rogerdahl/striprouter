@@ -19,29 +19,44 @@
 # GEN6 22
 # GP05 29
 
+#
+# Notes on the syntax in this file:
+#
+# - The lists of numbers are pairs of integers.
+# - A comma always separates two integers in a pair, and the pairs are always separated by whitespace.
+# - A pair can be a size (width,height), a position (X,Y), or an offset (+-X,+-Y).
+# - Whitespace is not allowed before or after a comma.
+#
+# E.g.:
+#   1,-2  3,4 5,6 - A valid list of three pairs (the extra whitespace is ignored)
+#   1, -2 3,4 5,6 - invalid (whitespace after comma)
+#   1,2 3,a 5,6 - invalid (the second pair contains a non-integer)
+#
+# Names of components, packages and pins are case sensitive, and can contain word characters and numbers.
+#
+
+
 # Stripboard
 # board <width>,<height>
-
 board 60,40
 
 # Packages
-# <package name> <pin coordinates relative to pin 0>
+# <package name> <pin 1 position> <pin 2 position> <...>
 
-dip14       0,0 1,0 2,0 3,0 4,0 5,0 6,0 6,-3 5,-3 4,-3 3,-3 2,-3 1,-3 0,-3
-header2x20mirror 19,0 19,-1  18,0 18,-1  17,0 17,-1  16,0 16,-1  15,0 15,-1  14,0 14,-1  13,0 13,-1  12,0 12,-1  11,0 11,-1  10,0 10,-1  9,0 9,-1  8,0 8,-1  7,0 7,-1  6,0 6,-1  5,0 5,-1  4,0 4,-1  3,0 3,-1  2,0 2,-1  1,0 1,-1  0,0 0,-1
-hpad2x2     0,0 1,0 0,-1 1,-1
+dip14             0,0  1,0  2,0  3,0  4,0  5,0  6,0  6,-3  5,-3  4,-3  3,-3  2,-3  1,-3  0,-3
+header2x20mirror  19,0 19,-1  18,0 18,-1  17,0 17,-1  16,0 16,-1  15,0 15,-1  14,0 14,-1  13,0 13,-1  12,0 12,-1  11,0 11,-1  10,0 10,-1  9,0 9,-1  8,0 8,-1  7,0 7,-1  6,0 6,-1  5,0 5,-1  4,0 4,-1  3,0 3,-1  2,0 2,-1  1,0 1,-1  0,0 0,-1
+hpad2x2           0,0  1,0  0,-1  1,-1
 
 # Alias
 # <name> = <name>
-
-raspberryPI = rpi
-power       = vcc.1
-ground      = gnd.1
+#raspberryPI = rpi
+#power       = vcc.1
+#gnd.1      = gnd.1
 
 # Components
-# <component name> <package name> <absolute position of component pin 0>
+# <component name> <package name> <absolute position of component pin 1>
 
-raspberryPI     header2x20mirror  19,17
+rpi     header2x20mirror  19,17
 
 vcc     hpad2x2     19,6
 gnd     hpad2x2     19,11
@@ -60,16 +75,16 @@ chan8   hpad2x2     36,11
 
 # "Don't Care" pins
 # <component name> <comma separated list of pin indexes>
-rpi 1, 3, 5, 7, 9, 17, 19, 21, 23, 27, 31, 35, 37
+rpi 1 3 5 7 9 17 19 21 23 27 31 35 37
 
 # Connections
 # <from component name>.<pin index> <to component name>.<pin index>
 
 # Powering the RPi from the GPIO header instead of USB
 
-power     rpi.2
+vcc.1     rpi.2
 vcc.1     rpi.4
-ground    rpi.25
+gnd.1    rpi.25
 gnd.1     rpi.39
 
 # 7400A

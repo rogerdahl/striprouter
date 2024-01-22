@@ -14,6 +14,7 @@ pub(crate) struct RouterThread {
     router_stop_signal: Arc<(Mutex<bool>, Condvar)>,
     genetic_algorithm: Arc<Mutex<GeneticAlgorithm>>,
     counter: Arc<AtomicUsize>,
+    limit_routes: Arc<AtomicUsize>,
     thread_idx: usize,
 }
 
@@ -26,6 +27,7 @@ impl RouterThread {
         router_stop_signal: Arc<(Mutex<bool>, Condvar)>,
         genetic_algorithm: Arc<Mutex<GeneticAlgorithm>>,
         counter: Arc<AtomicUsize>,
+        limit_routes: Arc<AtomicUsize>,
         thread_idx: usize,
     ) -> Self {
         Self {
@@ -35,6 +37,7 @@ impl RouterThread {
             router_stop_signal,
             genetic_algorithm,
             counter,
+            limit_routes,
             thread_idx,
         }
     }
@@ -72,11 +75,27 @@ impl RouterThread {
                     thread::sleep(std::time::Duration::from_millis(10));
                 }
             }
-            let ordering = self.genetic_algorithm.lock().unwrap().get_ordering(ordering_idx);
+            // let ordering = self.genetic_algorithm.lock().unwrap().get_ordering(ordering_idx);
             // println!("ordering={:?}", ordering);
 
+
+            let ordering = (0..self.input_layout.lock().unwrap().circuit.connection_vec.len()).collect::<Vec<usize>>();
+            // println!("ordering={:?}", ordering);
+
+            // {
+            //     let mut x = self.input_layout.lock().unwrap();
+            //     println!("x.layout_info_vec.len() = {}", x.layout_info_vec.len());
+            //     println!("x.route_status_vec.len() = {}", x.route_status_vec.len());
+            //     println!("x.set_idx_vec.len() = {}", x.set_idx_vec.len());
+            //     println!("x.strip_cut_vec.len() = {}", x.strip_cut_vec.len());
+            //     println!("x.via_set_vec.len() = {}", x.via_set_vec.len());
+            //     println!("x.route_vec.len() = {}", x.route_vec.len());
+            //     println!("x.n_completed_routes = {}", x.n_completed_routes);
+            //     println!("x.n_failed_routes = {}", x.n_failed_routes);
+            //     println!("x.cost = {}", x.cost);
+            // }
+
             let mut thread_layout = self.input_layout.lock().unwrap().thread_safe_copy();
-            thread_layout.route_vec.clear();
 
             let mut router = router::Router::new(thread_layout.board);
             let mut nets = nets::Nets::new(thread_layout.board);
@@ -84,21 +103,17 @@ impl RouterThread {
 
             let connection_idx_vec = ordering;
 
-            thread_layout.n_completed_routes = 0;
-            thread_layout.n_failed_routes = 0;
-            thread_layout.num_shortcuts = 0;
-            thread_layout.cost = 0;
 
             router.route(
                 thread_layout.board,
                 &mut thread_layout,
                 &mut nets,
                 connection_idx_vec,
-                Via::new(usize::MAX, usize::MAX),
+                &mut self.limit_routes,
             );
 
-            thread_layout.via_set_vec = nets.via_set_vec;
-            thread_layout.set_idx_vec = nets.set_idx_vec;
+            // thread_layout.via_set_vec = nets.via_set_vec;
+            // thread_layout.set_idx_vec = nets.set_idx_vec;
 
             self.genetic_algorithm.lock().unwrap().release_ordering(
                 ordering_idx,
@@ -106,19 +121,32 @@ impl RouterThread {
                 thread_layout.cost,
             );
 
-            let mut input_layout_guard = self.input_layout.lock().unwrap();
-            *input_layout_guard = thread_layout.clone();
+            /////////////////////////
 
-            let mut best_layout_guard = self.best_layout.lock().unwrap();
-            let has_more_completed_routes = thread_layout.n_completed_routes > best_layout_guard.n_completed_routes;
-            let has_equal_completed_routes = thread_layout.n_completed_routes == best_layout_guard.n_completed_routes;
-            let has_better_score = thread_layout.cost < best_layout_guard.cost;
-            // let is_based_on_other_layout = !best_layout_guard.is_based_on(&thread_layout);
-            if has_more_completed_routes || (has_equal_completed_routes && has_better_score)
-            // || is_based_on_other_layout
-            {
-                *best_layout_guard = thread_layout.clone();
-            }
+            // let mut input_layout_guard = self.input_layout.lock().unwrap();
+
+            // {
+                let mut best_layout_guard = self.best_layout.lock().unwrap();
+            //
+            //     let has_more_completed_routes = thread_layout.n_completed_routes > best_layout_guard.n_completed_routes;
+            //     let has_equal_routes_and_better_score = thread_layout.n_completed_routes == best_layout_guard.n_completed_routes && thread_layout.cost < best_layout_guard.cost;
+            //
+            //     // Assuming `is_based_on` is a method in the `Layout` struct that takes a reference to another `Layout`
+            //     // let is_based_on_other_layout = !best_layout_guard.is_based_on(&thread_layout);
+            //     let is_based_on_other_layout = false;
+            //
+            //     if has_more_completed_routes || has_equal_routes_and_better_score || is_based_on_other_layout {
+            //         *best_layout_guard = thread_layout.clone();
+            //     }
+            // }
+
+            println!("completed_routes={}", thread_layout.n_completed_routes);
+
+            // let mut best_layout_guard = self.best_layout.lock().unwrap();
+            *best_layout_guard = thread_layout.clone();
+
+
+            ///////////////////////
 
             // println!("thread_idx={}", self.thread_idx);
             self.counter.fetch_add(1, Ordering::SeqCst);

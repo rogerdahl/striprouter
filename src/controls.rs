@@ -1,91 +1,28 @@
 use crate::render::Render;
-use crate::MyApp;
+use crate::{status, MyApp};
 use eframe::epaint::{Color32, FontId};
 use egui::WidgetText::RichText;
 use egui::{Align, Button, Context, FontData, FontDefinitions, FontFamily, Rect, Sense, TextStyle, Ui};
 use num_format::{Locale, ToFormattedString};
 use std::fmt::format;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
-pub(crate) struct Controls {
-    pub ms_per_frame: f32,
-    pub checked_total: usize,
-    pub checked_per_second: f32,
-    pub wire_cost: i32,
-    pub strip_cost: i32,
-    pub via_cost: i32,
-    pub cut_cost: i32,
-    pub zoom: f32,
-    // pub failed_routes_avg: usize,
-    // pub layout_current_cost: usize,
-    pub current_layout_completed_routes: usize,
-    pub current_layout_failed_routes: usize,
-    pub current_layout_cost: usize,
+pub(crate) struct Controls {}
 
-    pub best_layout_completed_routes: usize,
-    pub best_layout_failed_routes: usize,
-    pub best_layout_cost: usize,
-
-    pub show_rats_nest: bool,
-    pub show_only_failed: bool,
-    pub show_current_layout: bool,
-    pub pause_router: bool,
-}
-
-impl Controls {
-    pub(crate) fn new(
-        ms_per_frame: f32,
-        checked_total: usize,
-        checked_per_second: f32,
-        wire_cost: i32,
-        strip_cost: i32,
-        via_cost: i32,
-        cut_cost: i32,
-        zoom: f32,
-
-        current_layout_completed_routes: usize,
-        current_layout_failed_routes: usize,
-        current_layout_cost: usize,
-
-        best_layout_completed_routes: usize,
-        best_layout_failed_routes: usize,
-        best_layout_cost: usize,
-
-        show_rats_nest: bool,
-        show_only_failed: bool,
-        show_current_layout: bool,
-        pause_router: bool,
-    ) -> Self {
-        Self {
-            ms_per_frame,
-            checked_total,
-            checked_per_second,
-            wire_cost,
-            strip_cost,
-            via_cost,
-            cut_cost,
-            zoom,
-
-            current_layout_completed_routes,
-            current_layout_failed_routes,
-            current_layout_cost,
-
-            best_layout_completed_routes,
-            best_layout_failed_routes,
-            best_layout_cost,
-
-            show_rats_nest,
-            show_only_failed,
-            show_current_layout,
-
-            pause_router,
-        }
+impl<'a> Controls {
+    pub(crate) fn new() -> Self {
+        Self {}
     }
 
     // #[rustfmt::skip::attributes(max_width)]
     #[rustfmt::skip]
-    pub(crate) fn ui(&mut self, ctx: &egui::Context) {
+    pub(crate) fn render(
+        &mut self, ctx: &Context,
+        status: &mut status::Status,
+        limit_routes: &mut Arc<AtomicUsize>
+    ) {
         egui::SidePanel::left("control_panel").show(ctx, |ui| {
             ui.scope(|ui| {
                 ui.style_mut().visuals.indent_has_left_vline = false;
@@ -113,9 +50,6 @@ impl Controls {
                     });
                     ui.end_row();
 
-                    // });
-                    ui.end_row();
-
                     Controls::section(ui, "Best Layout");
                     ui.horizontal(|ui| {
                         ui.label("    ");
@@ -129,41 +63,66 @@ impl Controls {
 
                     Controls::section(ui, "Total");
 
-                    Controls::name_int(ui, "Checked", self.checked_total);
-                    Controls::name_float(ui, "Checked/s", self.checked_per_second);
+                    Controls::name_int(ui, "Checked", status.checked_total);
+                    Controls::name_float(ui, "Checked/s", status.checked_per_second);
 
                     Controls::section(ui, "Current");
 
-                    Controls::name_int(ui, "Completed", self.current_layout_completed_routes);
-                    Controls::name_int(ui, "Failed Avg", self.current_layout_failed_routes);
-                    Controls::name_int(ui, "Cost", self.current_layout_cost);
+                    Controls::name_int(ui, "Completed", status.current_layout_completed_routes);
+                    Controls::name_int(ui, "Failed Avg", status.current_layout_failed_routes);
+                    Controls::name_int(ui, "Cost", status.current_layout_cost);
 
                     Controls::section(ui, "Best");
 
-                    Controls::name_int(ui, "Completed", self.best_layout_completed_routes);
-                    Controls::name_int(ui, "Failed", self.best_layout_failed_routes);
-                    Controls::name_int(ui, "Cost", self.best_layout_cost);
+                    Controls::name_int(ui, "Completed", status.best_layout_completed_routes);
+                    Controls::name_int(ui, "Failed", status.best_layout_failed_routes);
+                    Controls::name_int(ui, "Cost", status.best_layout_cost);
 
                     Controls::header(ui, "Router", false);
 
                     Controls::section(ui, "Costs");
 
-                    Controls::name_widget(ui, "Wire", egui::DragValue::new(&mut self.wire_cost).clamp_range(1..=100));
-                    Controls::name_widget(ui, "Strip", egui::DragValue::new(&mut self.strip_cost).clamp_range(1..=100));
-                    Controls::name_widget(ui, "Via", egui::DragValue::new(&mut self.via_cost).clamp_range(1..=100));
-                    Controls::name_widget(ui, "Cut", egui::DragValue::new(&mut self.cut_cost).clamp_range(1..=100));
+                    Controls::name_widget(ui, "Wire", egui::DragValue::new(&mut status.wire_cost).clamp_range(1..=100));
+                    Controls::name_widget(ui, "Strip", egui::DragValue::new(&mut status.strip_cost).clamp_range(1..=100));
+                    Controls::name_widget(ui, "Via", egui::DragValue::new(&mut status.via_cost).clamp_range(1..=100));//.speed(0.01));
+
+                    ui.end_row();
+
+                    let mut limit_routes_ = limit_routes.load(Ordering::SeqCst);
+
+                    ui.label(format!("LIMIT={} ", limit_routes_));
+
+                    ui.horizontal(|ui| {
+                        ui.label("    ");
+                        if ui.button("<").clicked() {
+                            limit_routes_ -= 1;
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("    ");
+                        if ui.button(">").clicked() {
+                            limit_routes_ += 1;
+                        }
+                    });
+
+                    limit_routes.store(limit_routes_, Ordering::SeqCst);
+
+                    ui.end_row();
+
+
+                    Controls::name_widget(ui, "Cut", egui::DragValue::new(&mut status.cut_cost).clamp_range(1..=100));
 
                     Controls::section(ui, "Display");
 
-                    Controls::name_widget(ui, "Rat's Nest", egui::Checkbox::new(&mut self.show_rats_nest, ""));
-                    Controls::name_widget(ui, "Current", egui::Checkbox::new(&mut self.show_only_failed, ""));
-                    Controls::name_widget(ui, "Only Failed", egui::Checkbox::new(&mut self.show_current_layout, ""));
+                    Controls::name_widget(ui, "Rat's Nest", egui::Checkbox::new(&mut status.show_rats_nest, ""));
+                    Controls::name_widget(ui, "Current", egui::Checkbox::new(&mut status.show_only_failed, ""));
+                    Controls::name_widget(ui, "Only Failed", egui::Checkbox::new(&mut status.show_current_layout, ""));
 
                     Controls::section(ui, "Misc");
 
-                    Controls::name_widget(ui, "Zoom", egui::DragValue::new(&mut self.zoom).clamp_range(1..=100));
-                    Controls::name_widget(ui, "Pause", egui::Checkbox::new(&mut self.pause_router, ""));
-                    Controls::name_float(ui, "ms/frame", self.ms_per_frame);
+                    Controls::name_widget(ui, "Zoom", egui::DragValue::new(&mut status.zoom).clamp_range(1..=100));
+                    Controls::name_widget(ui, "Pause", egui::Checkbox::new(&mut status.pause_router, ""));
+                    Controls::name_float(ui, "ms/frame", status.ms_per_frame);
                 });
             });
         });
@@ -215,8 +174,7 @@ impl Controls {
         let prefix = "  ";
         let suffix = "  ";
         let text_style = ui.style().drag_value_text_style.clone();
-        let button = Button::new(egui::RichText::new(format!("{}{}{}", prefix, s, suffix))
-            .text_style(text_style))
+        let button = Button::new(egui::RichText::new(format!("{}{}{}", prefix, s, suffix)).text_style(text_style))
             .wrap(false)
             .sense(Sense::focusable_noninteractive())
             .min_size(ui.spacing().interact_size);

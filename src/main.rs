@@ -9,10 +9,12 @@ use std::time::Instant;
 use eframe::egui;
 use rand::Rng;
 
+use crate::controls::Controls;
 use crate::layout::Layout;
 use crate::render::Render;
 // use crate::thread_stop::ThreadStop;
 use crate::router_control::RouterControl;
+use crate::status::Status;
 
 mod board;
 pub mod circuit;
@@ -23,6 +25,7 @@ mod ga_interface;
 mod layout;
 mod nets;
 mod render;
+mod render_ascii;
 mod router;
 mod router_control;
 mod router_thread;
@@ -64,9 +67,10 @@ struct MyApp {
     counter: Arc<AtomicUsize>,
     start: Instant,
 
-    controls: controls::Controls,
+    status: Status,
+    // controls: controls::Controls<'a>,
 
-    zoom: f32,
+    limit_routes: Arc<AtomicUsize>,
 }
 
 // impl MyApp {
@@ -77,7 +81,7 @@ struct MyApp {
 //     }
 // }
 
-impl Default for MyApp {
+impl<'a> Default for MyApp {
     fn default() -> Self {
         let input_layout = Arc::new(Mutex::new(Layout::new()));
         let current_layout = Arc::new(Mutex::new(Layout::new()));
@@ -88,6 +92,7 @@ impl Default for MyApp {
         bin_path.push(CIRCUIT_FILE_PATH);
         circuit_parser::CircuitFileParser::new(&mut input_layout.lock().unwrap()).parse(bin_path.as_os_str());
 
+        let limit_routes = Arc::new(AtomicUsize::new(0));
         // layout.via_set_vec = nets.via_set_vec;
         // layout.set_idx_vec = nets.set_idx_vec;
 
@@ -103,16 +108,19 @@ impl Default for MyApp {
 
         let counter = Arc::new(AtomicUsize::new(0));
 
+        // TODO: Second clone needed here?
         let mut router_control = RouterControl::new(
-            Arc::clone(&input_layout),
-            Arc::clone(&current_layout),
+            Arc::clone(&input_layout.clone()),
+            Arc::clone(&current_layout.clone()),
             Arc::clone(&best_layout),
             counter.clone(),
+            Arc::clone(&limit_routes),
             // Arc::clone(&current_layout),
         );
+
         router_control.start();
 
-        let zoom = 15.0;
+        let mut zoom = 15.0;
 
         Self {
             input_layout,
@@ -122,17 +130,22 @@ impl Default for MyApp {
             // router_stop_signal: thread_stop,
             counter: counter.clone(),
             start: Instant::now(),
+            status: Status::new(),
+            // controls: Controls::new(
+            //     0.0, 0, 0.0, 0, 0, 0, 0,
+            //     &mut 0.0, 0, 0, 0, 0, 0, 0, false, false, false, false),
 
-            zoom,
-
-            controls: controls::Controls::new(
-                0.0, 0, 0.0, 0, 0, 0, 0,
-                zoom, 0, 0, 0, 0, 0, 0, false, false, false, false),
+            limit_routes,
         }
+
+        // app.controls = Controls::new(
+        //         0.0, 0, 0.0, 0, 0, 0, 0,
+        //         &mut 0.0, 0, 0, 0, 0, 0, 0, false, false, false, false),
+        // )
     }
 }
 
-impl eframe::App for MyApp {
+impl<'a> eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Exit if the Escape key is pressed
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -142,13 +155,33 @@ impl eframe::App for MyApp {
         // This scales all UI elements
         ctx.set_pixels_per_point(1.3);
 
-        // Controls
-        self.controls.ui(ctx);
+        let mut controls = Controls::new();
 
+        // Controls
+        // TODO: Don't want to keep the lock for the whole render.
+        let mut best_layout = self.best_layout.lock().unwrap().clone();
+
+        // let mut x = &best_layout;
+        // println!("x.layout_info_vec.len() = {}", x.layout_info_vec.len());
+        // println!("x.route_status_vec.len() = {}", x.route_status_vec.len());
+        // println!("x.set_idx_vec.len() = {}", x.set_idx_vec.len());
+        // println!("x.strip_cut_vec.len() = {}", x.strip_cut_vec.len());
+        // println!("x.via_set_vec.len() = {}", x.via_set_vec.len());
+        // println!("x.route_vec.len() = {}", x.route_vec.len());
+        // println!("x.n_completed_routes = {}", x.n_completed_routes);
+        // println!("x.n_failed_routes = {}", x.n_failed_routes);
+        // println!("x.cost = {}", x.cost);
+
+        self.status.best_layout_cost = best_layout.cost;
+        controls.render(ctx, &mut self.status, &mut self.limit_routes);
+
+        let mut input_layout = self.input_layout.lock().unwrap().clone();
+
+        // println!("via_cost: {}", best_layout.settings.via_cost);
         // Stripboard
         egui::CentralPanel::default().show(ctx, |ui| {
             // let top_left = self.to_pos(ui.min_rect().left_top());
-            let mut render = Render::new(self.controls.zoom);
+            let mut render = Render::new(self.status.zoom);
             render.start_render(ctx);
 
             // let pos = ui.input().pointer.screen_pos();
@@ -156,20 +189,22 @@ impl eframe::App for MyApp {
 
             // {
             //     let _timer = Timer::new();
-            // render.draw(ctx, ui, &self.input_layout.lock().unwrap().clone(), true, false);
-            let best_layout = self.best_layout.lock().unwrap().clone();
-            render.draw(ctx, ui, &best_layout, true, false);
+            // render.draw(ctx, ui, &input_layout, true, false);
+            render.draw(ctx, ui, &best_layout, false, false);
 
+
+            // let render_ascii = render_ascii::RenderAscii::new(60, 40);
+            // render_ascii.draw(&best_layout);
+
+            // if self.start.elapsed().as_millis() > 1000 {
+            //     println!(
+            //         "best_layout: cost={:?} completed= {:?}",
+            //         best_layout.cost, best_layout.n_completed_routes
+            //     );
+            //     self.start = Instant::now();
+            //     println!("counter: {:?}", self.counter.load(Ordering::SeqCst));
+            //     self.counter.store(0, Ordering::SeqCst);
             // }
-            if self.start.elapsed().as_millis() > 1000 {
-                println!(
-                    "best_layout: cost={:?} completed= {:?}",
-                    best_layout.cost, best_layout.n_completed_routes
-                );
-                self.start = Instant::now();
-                println!("counter: {:?}", self.counter.load(Ordering::SeqCst));
-                self.counter.store(0, Ordering::SeqCst);
-            }
 
             render.end_render(ctx);
 

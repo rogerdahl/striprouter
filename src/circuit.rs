@@ -20,9 +20,6 @@ pub struct Component {
 }
 
 impl Component {
-    // Apparently, when the parameters have the same names as the struct fields,
-    // the struct fields can be initialized with the parameters without having
-    // to specify the field names.
     pub fn new(package_name: String, pin0_abs_pos: Via) -> Self {
         Self {
             package_name,
@@ -70,22 +67,12 @@ type ConnectionViaVec = Vec<StartEndVia>;
 type StringVec = Vec<String>;
 type PinViaVec = Vec<Via>;
 
+#[derive(Clone)]
 pub struct Circuit {
     pub package_to_pos_map: PackageToPosMap,
     pub component_name_to_component_map: ComponentNameToComponentMap,
     pub connection_vec: ConnectionVec,
     pub parser_error_vec: StringVec,
-}
-
-impl Clone for Circuit {
-    fn clone(&self) -> Self {
-        Self {
-            package_to_pos_map: self.package_to_pos_map.clone(),
-            component_name_to_component_map: self.component_name_to_component_map.clone(),
-            connection_vec: self.connection_vec.clone(),
-            parser_error_vec: self.parser_error_vec.clone(),
-        }
-    }
 }
 
 impl Circuit {
@@ -105,10 +92,7 @@ impl Circuit {
     pub fn gen_connection_via_vec(&self) -> ConnectionViaVec {
         let mut v = Vec::new();
         for c in &self.connection_vec {
-            let start_component = self
-                .component_name_to_component_map
-                .get(&c.start.component_name)
-                .unwrap();
+            let start_component = self.component_name_to_component_map.get(&c.start.component_name).unwrap();
             let end_component = self.component_name_to_component_map.get(&c.end.component_name).unwrap();
 
             let start_rel_pin = self.package_to_pos_map.get(&start_component.package_name).unwrap()[c.start.pin_idx];

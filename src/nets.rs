@@ -3,6 +3,16 @@ use crate::layout::{Layout, RouteStepVec};
 use crate::via::Via;
 use std::collections::HashSet;
 
+// This class keeps track of nets, which are pins and traces which are
+// electrically connected and so can be considered to be equivalents by the
+// router. When possible, the router uses this information to make shortcuts by
+// routing to the lowest cost point that is connected to the final location,
+// instead of to the actual final location.
+//
+// The nets are also what allows creating multiple routes from a single pin or
+// to a single pin. Without the nets, the first route connected to a pin would
+// block the pin off for other routes.
+
 pub struct Nets {
     pub set_idx_vec: Vec<usize>,
     pub via_set_vec: Vec<HashSet<Via>>,
@@ -16,12 +26,18 @@ impl Nets {
         }
     }
 
+    // pub fn clear(&mut self, board: Board) {
+    //     self.set_idx_vec = vec![usize::MAX; board.size()];
+    //     // self.set_idx_vec.clear();
+    //     self.via_set_vec.clear();
+    // }
+
     pub fn connect(&mut self, board: Board, layout: &mut Layout, via_a: Via, via_b: Via) {
         let set_idx_a = self.get_via_set_idx(board, layout, via_a);
         let set_idx_b = self.get_via_set_idx(board, layout, via_b);
 
         // TODO: These asserts get triggered by a fast component drag out of the board on the top
-        // side.
+        // side (on C++ version).
         // assert!(set_idx_a < self.via_set_vec.len());
         // assert!(set_idx_b < self.via_set_vec.len());
 
@@ -65,6 +81,8 @@ impl Nets {
         assert!(self.is_connected(board, layout, route_step_vec[0].via, route_step_vec[1].via));
     }
 
+    // Register a single via as an equivalent to itself to simplify later checking
+    // for equivalents.
     pub fn register_pin(&mut self, board: Board, layout: &mut Layout, via: Via) {
         let set_idx = self.get_via_set_idx(board, layout, via);
         if set_idx != usize::MAX {

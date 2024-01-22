@@ -33,8 +33,6 @@ pub struct Layout {
     pub cost: usize,
     pub n_completed_routes: usize,
     pub n_failed_routes: usize,
-    pub num_shortcuts: usize,
-    pub is_ready_for_eval: bool,
     // pub has_error: bool,
     pub layout_info_vec: StringVec,
     pub route_vec: RouteVec,
@@ -64,9 +62,7 @@ impl Layout {
             cost: 0,
             n_completed_routes: 0,
             n_failed_routes: 0,
-            num_shortcuts: 0,
 
-            is_ready_for_eval: false,
             // has_error: false,
             layout_info_vec: StringVec::new(),
             route_vec: RouteVec::new(),
@@ -106,8 +102,6 @@ impl Layout {
         self.cost = other.cost;
         self.n_completed_routes = other.n_completed_routes;
         self.n_failed_routes = other.n_failed_routes;
-        self.num_shortcuts = other.num_shortcuts;
-        self.is_ready_for_eval = other.is_ready_for_eval;
         // self.has_error = other.has_error;
         self.layout_info_vec = other.layout_info_vec.clone();
         self.route_vec = other.route_vec.clone();
